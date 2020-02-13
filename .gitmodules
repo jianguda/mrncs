@@ -1,0 +1,18 @@
+[submodule "parser/vendor/tree-sitter-go"]
+	path = parser/vendor/tree-sitter-go
+	url = https://github.com/tree-sitter/tree-sitter-go
+[submodule "parser/vendor/tree-sitter-java"]
+	path = parser/vendor/tree-sitter-java
+	url = https://github.com/tree-sitter/tree-sitter-java
+[submodule "parser/vendor/tree-sitter-javascript"]
+	path = parser/vendor/tree-sitter-javascript
+	url = https://github.com/tree-sitter/tree-sitter-javascript
+[submodule "parser/vendor/tree-sitter-php"]
+	path = parser/vendor/tree-sitter-php
+	url = https://github.com/tree-sitter/tree-sitter-php
+[submodule "parser/vendor/tree-sitter-python"]
+	path = parser/vendor/tree-sitter-python
+	url = https://github.com/tree-sitter/tree-sitter-python
+[submodule "parser/vendor/tree-sitter-ruby"]
+	path = parser/vendor/tree-sitter-ruby
+	url = https://github.com/tree-sitter/tree-sitter-ruby
