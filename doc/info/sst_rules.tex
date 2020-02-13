@@ -1,0 +1,49 @@
+\section{SST Transformation Rules}
+
+% In this section, we describe which kind of transformation should be applied to convert AST to SST. 
+
+We design one novel tree structure named SST. SST is similar to AST, but it removed unnecessary tree nodes and improved the label of tree nodes, to make the tree structure more semantically informative. SST will be used for generating tree representations.
+
+% It is not convenient to give a clear definition of SST, because the processing work could be flexible and it is not limited to our operations.
+SST is an approximation to simplify the tree structure of AST and highlights the semantic information of the code snippet. However, there may be a better way to do this. Based on AST, if we prune tree structure and improve labels of tree nodes, for enhancing semantic information, then such one tree structure could be recognized as SST.
+
+For one given AST, we conduct three operations to build the corresponding SST. The first operation is to prune semantically meaningless tree nodes, such as type declarations like "int" and "boolean", modifier keywords like "public" and "abstract", functional keywords like "async" and "await". The second operation is to use descriptive tags as the labels of statement nodes and expression nodes, like using "loop" for for-loop and while-loop statements and "literal" for exact string variables. The third operation is to unify the expression of semantically similar labels from various languages, like unifying "function", "program", "define", "module" as "module".
+
+% In this section, we describe which kind of transformation should be applied to convert AST to SST. 
+
+We have three transformation rules for converting AST to corresponding SST, and concrete operations are listed as follows:
+
+% To make our results more intuitive, we list them as follows.
+
+\paragraph{Prune Semantically Meaningless Tree Nodes}
+
+\begin{compactenum}
+\item Remove reserve words, like "self", "this", "super"
+\item Remove type declarations, like "int", "boolean", "string"
+\item Remove modifier keywords, like "public", "abstract", "abstract"
+\item Remove functional keywords, like "async", "await", "lambda"
+\item Remove the ExpressionStatement Node
+\end{compactenum}
+
+\paragraph{Use Descriptive Tags as Labels of Non-terminal Tree Nodes}
+
+\begin{compactenum}
+\item Use "access" for field access
+\item Use "assign" for variable declaration
+\item Use "invoke" for function invocations
+\item Use "number" for exact numbers
+\item Use "literal" for exact string variables
+\item Use "operate" for exact operators, like "+", "="
+\item Use "loop" for for-loop and while-loop statements
+\end{compactenum}
+
+\paragraph{Unify the Expression of Semantically Similar Labels from Various Languages}
+
+\begin{compactenum}
+\item Unify "block", "statement\_block" as "block"
+\item Unify "function", "program", "define", "module" as "module"
+\end{compactenum}
+
+The full list of the SST rules, defined for multiple programming languages, as well as the complete SST rules, will be published a bit later. Please keep patient and thanks!
+
+The idea behind the newly proposed SST is novel for code search and the simplified tree structure proposed is more adequate than an AST for the purpose of code search due to the simplifications and transformations made to the tree. Removing non-relevant nodes could increase precision, while the transformation of similar code structures like loops into a uniform representation among programming languages and among various equivalent structures within the same programming language could increase recall and could allow retrieval among code written in various programming languages.
