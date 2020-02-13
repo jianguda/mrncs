@@ -1,0 +1,13 @@
+annoy==1.16.3
+bert-for-tf2=0.14.7
+docopt==0.6.2
+more-itertools==8.3.0
+numpy==1.18.4
+pandas==1.0.3
+scikit-learn==0.23.1
+scipy==1.4.1
+spacy==2.2.4
+tensorflow==2.1.1
+tree_sitter==0.1.1
+tqdm==4.46.0
+wandb==0.8.36
