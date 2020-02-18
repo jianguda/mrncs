@@ -129,7 +129,4 @@ dmypy.json
 .pyre/
 
 ~
-tmp
-setup
-weekly
-azure.md
+archive
