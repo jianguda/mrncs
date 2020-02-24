@@ -5,7 +5,7 @@
 5. quickstart following [this link](https://github.com/jianguda/CodeSearchNet#quickstart)
 6. sudo apt install python3.6-dev
 python -m pip install --upgrade tree-sitter
-
+7. check `nvidia-smi`
 
 Cuda@9.0
 CuDNN@7.4.2
