@@ -1,4 +1,4 @@
-1. follow the pdf file at the `stanford` floder
+1. follow the pdf file at the `tutorial` floder
 2. attach a disk following [this link](https://docs.microsoft.com/zh-cn/previous-versions/azure/virtual-machines/linux/classic/attach-disk-classic)
 3. install docker following [this link](https://linuxize.com/post/how-to-install-and-use-docker-on-ubuntu-18-04/)
 4. btw, install nvidia-container-toolkit following [this link](https://github.com/NVIDIA/nvidia-docker#ubuntu-16041804-debian-jessiestretchbuster)
