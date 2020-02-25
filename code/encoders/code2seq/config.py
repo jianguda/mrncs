@@ -67,7 +67,6 @@ class Config:
         self.RANDOM_CONTEXTS = True
         self.BEAM_WIDTH = 1
         self.USE_MOMENTUM = True
-        self.RELEASE = args.release
 
     @staticmethod
     def get_debug_config(args):
