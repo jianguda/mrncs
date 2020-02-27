@@ -23,8 +23,10 @@
 #### GNN
 - [`A new model for learning in graph domains`](https://ieeexplore.ieee.org/document/1555942)
 - [`The Graph Neural Network Model`](https://ieeexplore.ieee.org/document/4700287)
+- [`Relational inductive biases, deep learning, and graph networks`](https://arxiv.org/abs/1806.01261)
 - https://zhuanlan.zhihu.com/weichennote
 - https://github.com/thunlp/GNNPapers
+- https://graphdeeplearning.github.io/post/transformers-are-gnns/
 #### Attention
 - [`Attention Is All You Need`](https://arxiv.org/abs/1706.03762)
 - [`Universal Transformers`](https://arxiv.org/abs/1807.03819)
