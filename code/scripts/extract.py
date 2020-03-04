@@ -1,24 +1,7 @@
 import re
-import json
-import multiprocessing
 import itertools
-import tqdm
-import joblib
-import numpy as np
-
-from pathlib import Path
 
 METHOD_NAME, NUM = 'METHODNAME', 'NUM'
-
-
-def collect_asts(json_file):
-    asts = []
-    with open(json_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            ast = json.loads(line.strip())
-            asts.append(ast)
-
-    return asts
 
 
 def terminals(ast, node_index):
@@ -139,25 +122,3 @@ def collect_samples(ast):
                 samples.append(sample)
 
     return samples
-
-
-def collect_all_and_save(asts, output_file):
-    parallel = joblib.Parallel(n_jobs=multiprocessing.cpu_count())
-    func = joblib.delayed(collect_samples)
-
-    samples = parallel(func(ast) for ast in tqdm.tqdm(asts))
-    samples = list(itertools.chain.from_iterable(samples))
-
-    with open(output_file, 'w') as f:
-        for line_index, line in enumerate(samples):
-            f.write(line + ('' if line_index == len(samples) - 1 else '\n'))
-
-
-def main():
-    np.random.seed(239)
-
-    path = Path('')
-    input_file = path / 'python_ast.jsonl'
-    data = collect_asts(input_file)
-    output_file = path / 'python_path.txt'
-    collect_all_and_save(data, output_file)

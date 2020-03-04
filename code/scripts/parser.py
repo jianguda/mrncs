@@ -1,5 +1,4 @@
 import ast
-import json
 
 
 def parse_file(code):
@@ -113,7 +112,7 @@ def parse_file(code):
                     json_node['type'] = json_node['type'] + type(child).__name__
                 else:
                     children.append(traverse(child))
-                
+
         if isinstance(node, ast.Attribute):
             children.append(gen_identifier(node.attr, 'attr'))
                 
@@ -122,4 +121,4 @@ def parse_file(code):
         return pos
     
     traverse(tree)
-    return json.dumps(json_tree, separators=(',', ':'), ensure_ascii=False)
+    return json_tree

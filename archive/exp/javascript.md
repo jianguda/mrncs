@@ -4,7 +4,7 @@ rnnmodel
 selfattentionmodel
 convselfattentionmodel
 
-### 
+###
 
 python train.py --model neuralbow ../resources/data/javascript/final/jsonl/train ../resources/data/javascript/final/jsonl/valid ../resources/data/javascript/final/jsonl/test
 
@@ -41,4 +41,5 @@ Validation-javascript MRR (bs=1,000):  0.414
 python train.py --model convselfatt ../resources/data/javascript/final/jsonl/train ../resources/data/javascript/final/jsonl/valid ../resources/data/javascript/final/jsonl/test
 
 ```
+
 ```
