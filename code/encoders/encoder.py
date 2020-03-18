@@ -117,6 +117,13 @@ class Encoder(ABC):
         pass
 
     @classmethod
+    def brew_metadata_from_sample(cls, data_to_load: Any, raw_metadata: Dict[str, Any], lang) -> None:
+        """
+        it is similar to `load_metadata_from_sample` but aims to extract AST-paths from raw code
+        """
+        pass
+
+    @classmethod
     @abstractmethod
     def finalise_metadata(cls, encoder_label: str, hyperparameters: Dict[str, Any], raw_metadata_list: List[Dict[str, Any]]) -> Dict[str, Any]:
         """

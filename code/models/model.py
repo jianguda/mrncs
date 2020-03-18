@@ -4,7 +4,7 @@ import multiprocessing
 import random
 import time
 from abc import ABC, abstractmethod
-from collections import defaultdict, OrderedDict
+from collections import defaultdict, Counter, OrderedDict
 from enum import Enum, auto
 from typing import List, Dict, Any, Iterable, Tuple, Optional, Union, Callable, Type, DefaultDict
 
@@ -15,6 +15,7 @@ from dpu_utils.utils import RichPath
 
 from utils.py_utils import run_jobs_in_parallel
 from encoders import Encoder, QueryType
+from models.ts import TS
 
 
 LoadedSamples = Dict[str, List[Dict[str, Any]]]
@@ -405,6 +406,10 @@ class Model(ABC):
                                                                    per_code_language_metadata[sample_language],
                                                                    self.hyperparameters['code_use_subtokens'],
                                                                    self.hyperparameters['code_mark_subtoken_end'])
+                # extract AST-paths from raw code todo
+                self.__code_encoder_type.brew_metadata_from_sample(raw_sample['code'],
+                                                                   per_code_language_metadata[sample_language],
+                                                                   sample_language)
                 self.__query_encoder_type.load_metadata_from_sample([d.lower() for d in raw_sample['docstring_tokens']],
                                                                     raw_query_metadata)
             yield (raw_query_metadata, per_code_language_metadata)
@@ -900,6 +905,19 @@ class Model(ABC):
                 reordered_representations.append(computed_representations[tensorised_data_id_to_representation_idx[tensorised_data_id]])
         return reordered_representations
 
+    @staticmethod
+    def paths2tokens(paths):
+        paths = [path.split(',') for path in paths]
+        terminals = list()
+        items = map(lambda x: x[0] + '|' + x[2], paths)
+        for item in items:
+            terminals.extend(item.split('|'))
+        nonterminals = list()
+        items = map(lambda x: x[1], paths)
+        for item in items:
+            nonterminals.extend(item.split('|'))
+        return terminals, nonterminals
+
     def get_query_representations(self, query_data: List[Dict[str, Any]]) -> List[Optional[np.ndarray]]:
         def query_data_loader(sample_to_parse, result_holder):
             function_name = sample_to_parse.get('func_name')
@@ -919,10 +937,20 @@ class Model(ABC):
 
     def get_code_representations(self, code_data: List[Dict[str, Any]]) -> List[Optional[np.ndarray]]:
         def code_data_loader(sample_to_parse, result_holder):
+            code = sample_to_parse['code']
             code_tokens = sample_to_parse['code_tokens']
             language = sample_to_parse['language']
             if language.startswith('python'):
                 language = 'python'
+
+            # todo check
+            # todo consider the case where parse failed
+            ts = TS(code, lang=language)
+            ast_paths = ts.code2paths()
+            terminals, nonterminals = self.paths2tokens(ast_paths)
+            # count the tokens
+            terminals_stats = list(Counter(terminals).items())
+            nonterminals_stats = list(Counter(nonterminals).items())
 
             if code_tokens is not None:
                 function_name = sample_to_parse.get('func_name')

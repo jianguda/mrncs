@@ -1,4 +1,5 @@
 from .model import Model
+from .alon_model import AlonModel
 from .nbow_model import NeuralBoWModel
 from .rnn_model import RNNModel
 from .self_att_model import SelfAttentionModel

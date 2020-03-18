@@ -1,4 +1,5 @@
 from .encoder import Encoder, QueryType
+from .alon_encoder import AlonEncoder
 from .nbow_seq_encoder import NBoWEncoder
 from .rnn_seq_encoder import RNNEncoder
 from .self_att_encoder import SelfAttentionEncoder

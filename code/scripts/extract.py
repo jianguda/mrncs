@@ -91,8 +91,6 @@ def collect_sample(ast, fd_index):
     if root['type'] != 'FunctionDef':
         raise ValueError('Wrong node type.')
 
-    target = root['value']
-
     tree_paths = raw_tree_paths(ast, fd_index)
     contexts = []
     for tree_path in tree_paths:
@@ -107,18 +105,16 @@ def collect_sample(ast, fd_index):
     if len(contexts) == 0:
         return None
 
-    target = delim_name(target)
-    context = ' '.join(contexts)
-
-    return f'{target} {context}'
+    return ' '.join(contexts)
 
 
-def collect_samples(ast):
+def tree2paths(tree):
     samples = []
-    for node_index, node in enumerate(ast):
+    for node_index, node in enumerate(tree):
         if node['type'] == 'FunctionDef':
-            sample = collect_sample(ast, node_index)
+            sample = collect_sample(tree, node_index)
             if sample is not None:
                 samples.append(sample)
 
-    return samples
+    ast_paths = samples[0].strip().split()
+    return ast_paths
