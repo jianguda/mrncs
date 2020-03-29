@@ -68,8 +68,13 @@ def run_train(model_class: Type[Model],
         resume = True
     else:
         model.train_log("Tokenizing and building vocabulary for code snippets and queries.  This step may take several hours.")
+        if model.__class__.__name__ == 'AlonModel':
+            model._load_in_once = True
+        print('$A', end='\r')
         model.load_metadata(train_data_dirs, max_files_per_dir=max_files_per_dir, parallelize=parallelize)
+        print('$B', end='\r')
         model.make_model(is_train=True)
+        print('$C', end='\r')
         model.train_log("Starting training run %s of model %s with following hypers:\n%s" % (run_name,
                                                                                              model.__class__.__name__,
                                                                                              str(hyperparameters)))

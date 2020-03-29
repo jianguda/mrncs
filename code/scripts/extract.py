@@ -50,7 +50,7 @@ def merge_terminals2_paths(v_path, u_path):
 
 def raw_tree_paths(ast, node_index):
     tnodes = terminals(ast, node_index)
-
+    print(f"tnodes\n{tnodes}")
     tree_paths = []
     max_path_length = 8
     max_path_width = 2

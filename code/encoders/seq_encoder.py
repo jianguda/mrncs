@@ -92,8 +92,8 @@ class SeqEncoder(Encoder):
                 yield token
 
     @classmethod
-    def load_metadata_from_sample(cls, data_to_load: Iterable[str], raw_metadata: Dict[str, Any],
-                                  use_subtokens: bool=False, mark_subtoken_end: bool=False) -> None:
+    def load_metadata_from_sample(cls, language: str, data_to_brew: Iterable[str], data_to_load: Iterable[str],
+                                  raw_metadata: Dict[str, Any], use_subtokens: bool=False, mark_subtoken_end: bool=False) -> None:
         if use_subtokens:
             data_to_load = cls._to_subtoken_stream(data_to_load, mark_subtoken_end=mark_subtoken_end)
         raw_metadata['token_counter'].update(data_to_load)
@@ -125,6 +125,8 @@ class SeqEncoder(Encoder):
                               encoder_label: str,
                               hyperparameters: Dict[str, Any],
                               metadata: Dict[str, Any],
+                              language: str,
+                              data_to_brew: Any,
                               data_to_load: Any,
                               function_name: Optional[str],
                               result_holder: Dict[str, Any],

@@ -102,24 +102,21 @@ class Encoder(ABC):
 
     @classmethod
     @abstractmethod
-    def load_metadata_from_sample(cls, data_to_load: Any, raw_metadata: Dict[str, Any],
+    def load_metadata_from_sample(cls, language: str,
+                                  data_to_brew: Any, data_to_load: Any,
+                                  raw_metadata: Dict[str, Any],
                                   use_subtokens: bool=False, mark_subtoken_end: bool=False) -> None:
         """
         Called to load metadata from a single sample.
 
-        Args:
+        Args: JGD add more parameters
+            language: Indicator of the name of programming language.
+            data_to_brew: Raw data to brew; Used for extract more info from code.
             data_to_load: Raw data to load; type depens on encoder. Usually comes from a data parser such as
              tokenize_python_from_string or tokenize_docstring_from_string.
             raw_metadata: A dictionary that will be used to collect the raw metadata (token counts, ...).
             use_subtokens: subtokenize identifiers
             mark_subtoken_end: add a special marker for subtoken ends. Used only if use_subtokens=True
-        """
-        pass
-
-    @classmethod
-    def brew_metadata_from_sample(cls, data_to_load: Any, raw_metadata: Dict[str, Any], lang) -> None:
-        """
-        it is similar to `load_metadata_from_sample` but aims to extract AST-paths from raw code
         """
         pass
 
@@ -145,6 +142,8 @@ class Encoder(ABC):
                               encoder_label: str,
                               hyperparameters: Dict[str, Any],
                               metadata: Dict[str, Any],
+                              language: str,
+                              data_to_brew: Any,
                               data_to_load: Any,
                               function_name: Optional[str],
                               result_holder: Dict[str, Any],
@@ -153,10 +152,12 @@ class Encoder(ABC):
         Called to convert a raw sample into the internal format, allowing for preprocessing.
         Result will eventually be fed again into the split_data_into_minibatches pipeline.
 
-        Args:
+        Args: JGD add more parameters
             encoder_label: Label used for this encoder.
             hyperparameters: Hyperparameters used to load data.
             metadata: Computed metadata (e.g. vocabularies).
+            language: Indicator of the name of programming language.
+            data_to_brew: Raw data to brew; Used for extract more info from code.
             data_to_load: Raw data to load; type depens on encoder. Usually comes from a data parser such as
              tokenize_python_from_string or tokenize_docstring_from_string.
              function_name: The name of the function.

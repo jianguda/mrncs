@@ -15,7 +15,6 @@ from dpu_utils.utils import RichPath
 
 from utils.py_utils import run_jobs_in_parallel
 from encoders import Encoder, QueryType
-from models.ts import TS
 
 
 LoadedSamples = Dict[str, List[Dict[str, Any]]]
@@ -60,6 +59,8 @@ def parse_data_file(hyperparameters: Dict[str, Any],
         use_code_flag = code_encoder_class.load_data_from_sample("code",
                                                                  hyperparameters,
                                                                  per_code_language_metadata[language],
+                                                                 language,
+                                                                 raw_sample['code'],
                                                                  raw_sample['code_tokens'],
                                                                  function_name,
                                                                  sample,
@@ -68,6 +69,8 @@ def parse_data_file(hyperparameters: Dict[str, Any],
         use_query_flag = query_encoder_class.load_data_from_sample("query",
                                                                    hyperparameters,
                                                                    query_metadata,
+                                                                   '',
+                                                                   None,
                                                                    [d.lower() for d in raw_sample['docstring_tokens']],
                                                                    function_name,
                                                                    sample,
@@ -157,6 +160,9 @@ class Model(ABC):
         # save directory as tensorboard.
         self.__tensorboard_dir = log_save_dir
 
+        # whether the data is load in batch (AST-paths) or one by one (tokens)
+        self._load_in_once = False
+
     @property
     def query_metadata(self):
         return self.__query_metadata
@@ -225,15 +231,21 @@ class Model(ABC):
 
     def make_model(self, is_train: bool):
         with self.__sess.graph.as_default():
+            print('$B1', end='\r')
             random.seed(self.hyperparameters['seed'])
             np.random.seed(self.hyperparameters['seed'])
             tf.set_random_seed(self.hyperparameters['seed'])
 
+            print('$B2', end='\r')
             self._make_model(is_train=is_train)
+            print('$B3', end='\r')
             self._make_loss()
+            print('$B4', end='\r')
             if is_train:
                 self._make_training_step()
+                print('$B5', end='\r')
                 self.__summary_writer = tf.summary.FileWriter(self.__tensorboard_dir, self.__sess.graph)
+                print('$B6', end='\r')
 
     def _make_model(self, is_train: bool) -> None:
         """
@@ -242,6 +254,7 @@ class Model(ABC):
         Note: This has to create self.ops['code_representations'] and self.ops['query_representations'],
         tensors of the same shape and rank 2.
         """
+        print('$B2A', end='\r')
         self.__placeholders['dropout_keep_rate'] = tf.placeholder(tf.float32,
                                                                   shape=(),
                                                                   name='dropout_keep_rate')
@@ -250,21 +263,31 @@ class Model(ABC):
                                                       dtype=np.float32),
                                         shape=[self.hyperparameters['batch_size']],
                                         name='sample_loss_weights')
+        print('$B2B', end='\r')
 
         with tf.variable_scope("code_encoder"):
             language_encoders = []
+            print('$B2C', end='\r')
             for (language, language_metadata) in sorted(self.__per_code_language_metadata.items(), key=lambda kv: kv[0]):
                 with tf.variable_scope(language):
+                    print('$B2C1', end='\r')
                     self.__code_encoders[language] = self.__code_encoder_type(label="code",
                                                                               hyperparameters=self.hyperparameters,
                                                                               metadata=language_metadata)
+                    print('$B2C2', end='\r')
                     language_encoders.append(self.__code_encoders[language].make_model(is_train=is_train))
+                    print('$B2C3', end='\r')
+            print('$B2D', end='\r')
             self.ops['code_representations'] = tf.concat(language_encoders, axis=0)
+            print('$B2E', end='\r')
         with tf.variable_scope("query_encoder"):
+            print('$B2E1', end='\r')
             self.__query_encoder = self.__query_encoder_type(label="query",
                                                              hyperparameters=self.hyperparameters,
                                                              metadata=self.__query_metadata)
+            print('$B2E2', end='\r')
             self.ops['query_representations'] = self.__query_encoder.make_model(is_train=is_train)
+            print('$B2E3', end='\r')
 
         code_representation_size = next(iter(self.__code_encoders.values())).output_representation_size
         query_representation_size = self.__query_encoder.output_representation_size
@@ -397,31 +420,49 @@ class Model(ABC):
         raw_code_language_metadata_lists: DefaultDict[str, List] = defaultdict(list)
 
         def metadata_parser_fn(_, file_path: RichPath) -> Iterable[Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]]]:
+            print('$A1A', end='\r')
             raw_query_metadata = self.__query_encoder_type.init_metadata()
             per_code_language_metadata: DefaultDict[str, Dict[str, Any]] = defaultdict(self.__code_encoder_type.init_metadata)
+            print('$A1B', end='\r')
 
+            # TODO check this part
+            sample_language = None
             for raw_sample in file_path.read_by_file_suffix():
                 sample_language = raw_sample['language']
-                self.__code_encoder_type.load_metadata_from_sample(raw_sample['code_tokens'],
+                print('$A1C', end='\r')
+                if not self._load_in_once:
+                    self.__code_encoder_type.load_metadata_from_sample(sample_language, None, raw_sample['code_tokens'],
+                                                                       per_code_language_metadata[sample_language],
+                                                                       self.hyperparameters['code_use_subtokens'],
+                                                                       self.hyperparameters['code_mark_subtoken_end'])
+                print('$A1D', end='\r')
+                self.__query_encoder_type.load_metadata_from_sample('', None,
+                                                                    [d.lower() for d in raw_sample['docstring_tokens']],
+                                                                    raw_query_metadata)
+                print('$A1E', end='\r')
+
+            if self._load_in_once:
+                self.__code_encoder_type.load_metadata_from_sample(sample_language, None, None,
                                                                    per_code_language_metadata[sample_language],
                                                                    self.hyperparameters['code_use_subtokens'],
                                                                    self.hyperparameters['code_mark_subtoken_end'])
-                # extract AST-paths from raw code todo
-                self.__code_encoder_type.brew_metadata_from_sample(raw_sample['code'],
-                                                                   per_code_language_metadata[sample_language],
-                                                                   sample_language)
-                self.__query_encoder_type.load_metadata_from_sample([d.lower() for d in raw_sample['docstring_tokens']],
-                                                                    raw_query_metadata)
             yield (raw_query_metadata, per_code_language_metadata)
 
         def received_result_callback(metadata_parser_result: Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]]):
+            print('$A2A', end='\r')
             (raw_query_metadata, per_code_language_metadata) = metadata_parser_result
+            print('$A2B', end='\r')
             raw_query_metadata_list.append(raw_query_metadata)
+            print('$A2C', end='\r')
             for (metadata_language, raw_code_language_metadata) in per_code_language_metadata.items():
+                print('$A2D', end='\r')
                 raw_code_language_metadata_lists[metadata_language].append(raw_code_language_metadata)
 
         def finished_callback():
             pass
+
+        if self._load_in_once:
+            parallelize = False
 
         if parallelize:
             run_jobs_in_parallel(get_data_files_from_directory(data_dirs, max_files_per_dir),
@@ -429,14 +470,19 @@ class Model(ABC):
                                  received_result_callback,
                                  finished_callback)
         else:
+            print('$A1', end='\r')
             for (idx, file) in enumerate(get_data_files_from_directory(data_dirs, max_files_per_dir)):
+                print('$A2', end='\r')
                 for res in metadata_parser_fn(idx, file):
                     received_result_callback(res)
 
+        print('$A3', end='\r')
         self.__query_metadata = self.__query_encoder_type.finalise_metadata("query", self.hyperparameters, raw_query_metadata_list)
+        print('$A4', end='\r')
         for (language, raw_per_language_metadata) in raw_code_language_metadata_lists.items():
             self.__per_code_language_metadata[language] = \
                 self.__code_encoder_type.finalise_metadata("code", self.hyperparameters, raw_per_language_metadata)
+        print('$A5', end='\r')
 
     def load_existing_metadata(self, metadata_path: RichPath):
         saved_data = metadata_path.read_by_file_suffix()
@@ -905,19 +951,6 @@ class Model(ABC):
                 reordered_representations.append(computed_representations[tensorised_data_id_to_representation_idx[tensorised_data_id]])
         return reordered_representations
 
-    @staticmethod
-    def paths2tokens(paths):
-        paths = [path.split(',') for path in paths]
-        terminals = list()
-        items = map(lambda x: x[0] + '|' + x[2], paths)
-        for item in items:
-            terminals.extend(item.split('|'))
-        nonterminals = list()
-        items = map(lambda x: x[1], paths)
-        for item in items:
-            nonterminals.extend(item.split('|'))
-        return terminals, nonterminals
-
     def get_query_representations(self, query_data: List[Dict[str, Any]]) -> List[Optional[np.ndarray]]:
         def query_data_loader(sample_to_parse, result_holder):
             function_name = sample_to_parse.get('func_name')
@@ -925,6 +958,8 @@ class Model(ABC):
                 "query",
                 self.hyperparameters,
                 self.__query_metadata,
+                '',
+                None,
                 [d.lower() for d in sample_to_parse['docstring_tokens']],
                 function_name,
                 result_holder=result_holder,
@@ -943,21 +978,14 @@ class Model(ABC):
             if language.startswith('python'):
                 language = 'python'
 
-            # todo check
-            # todo consider the case where parse failed
-            ts = TS(code, lang=language)
-            ast_paths = ts.code2paths()
-            terminals, nonterminals = self.paths2tokens(ast_paths)
-            # count the tokens
-            terminals_stats = list(Counter(terminals).items())
-            nonterminals_stats = list(Counter(nonterminals).items())
-
             if code_tokens is not None:
                 function_name = sample_to_parse.get('func_name')
                 return self.__code_encoder_type.load_data_from_sample(
                     "code",
                     self.hyperparameters,
                     self.__per_code_language_metadata[language],
+                    language,
+                    code,
                     code_tokens,
                     function_name,
                     result_holder=result_holder,

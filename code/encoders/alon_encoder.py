@@ -1,27 +1,23 @@
-import pickle
-from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List, Iterable, Optional, Tuple
 
 import tensorflow as tf
-from utils.tfutils import write_to_feed_dict, pool_sequence_embedding
+from utils.tfutils import write_to_feed_dict
 
 from collections import Counter
 import numpy as np
-from typing import Dict, Any, List, Iterable, Optional, Tuple
 import random
-import re
 
-from utils.bpevocabulary import BpeVocabulary
 from utils.tfutils import convert_and_pad_token_sequence
 
-import tensorflow as tf
 from dpu_utils.codeutils import split_identifier_into_parts
 from dpu_utils.mlutils import Vocabulary
 
-from .seq_encoder import SeqEncoder
+from .seq_encoder import Encoder, QueryType
+from scripts.ts import PathExtractor
+from scripts.run import get_path, load_data, paths2tokens
 
 
-class AlonEncoder(SeqEncoder):
+class AlonEncoder(Encoder):
     @classmethod
     def get_default_hyperparameters(cls) -> Dict[str, Any]:
         encoder_hypers = {'rnn_hidden_dim': 64,
@@ -33,68 +29,203 @@ class AlonEncoder(SeqEncoder):
         return hypers
 
     @classmethod
-    def _to_subtoken_stream(cls, input_stream: Iterable[str], mark_subtoken_end: bool) -> Iterable[str]:
-        for token in input_stream:
-            if SeqEncoder.IDENTIFIER_TOKEN_REGEX.match(token):
-                yield from split_identifier_into_parts(token)
-                if mark_subtoken_end:
-                    yield '</id>'
-            else:
-                yield token
-
-    @staticmethod
-    def load_data(path, lang):
-        # todo replace the existing legacy code
-        contexts_file = path / f'{lang}_contexts.csv'
-        ast_contexts = list()
-        with open(contexts_file, 'r') as file:
-            context_lines = file.readlines()
-            for context_line in context_lines:
-                ast_paths = context_line.split()
-                ast_contexts.append(ast_paths)
-            print(f'ast_contexts loaded from: {contexts_file}')
-        stats_file = path / f'{lang}_stats.pkl'
-        with open(stats_file, 'rb') as file:
-            terminals_stats = pickle.load(file)
-            nonterminals_stats = pickle.load(file)
-            print(f'stats data loaded from: {stats_file}')
-        return ast_paths, terminals_stats, nonterminals_stats
+    def init_metadata(cls) -> Dict[str, Any]:
+        raw_metadata = super().init_metadata()
+        raw_metadata['ast_contexts'] = list()
+        raw_metadata['context_filenames'] = list()
+        raw_metadata['terminal_counter'] = Counter()
+        raw_metadata['nonterminal_counter'] = Counter()
+        return raw_metadata
 
     @classmethod
-    def brew_metadata_from_sample(cls, data_to_load: Iterable[str], raw_metadata: Dict[str, Any], lang) -> None:
-        # if use_subtokens:
-        #     data_to_load = cls._to_subtoken_stream(data_to_load, mark_subtoken_end=mark_subtoken_end)
-        # todo check
-        # load preprocessed-data
-        path = Path(f'C:\\Users\\jian\\Documents\\Corpus\\{lang}\\{lang}\\final\\jsonl')
-        ast_paths, terminals_stats, nonterminals_stats = cls.load_data(path, lang)
-        raw_metadata['token_counter'].update(data_to_load)
+    def load_metadata_from_sample(cls, language: str, data_to_brew: Iterable[str], data_to_load: Iterable[str],
+                                  raw_metadata: Dict[str, Any], use_subtokens: bool=False, mark_subtoken_end: bool=False) -> None:
+        # JGD load preprocessed data
+        path = get_path(language)
+        print('$A1C1', end='\r')
+        context_filename, terminal_counter, nonterminal_counter = load_data(path)
+        print('$A1C2', end='\r')
+        raw_metadata['context_filenames'].extend(context_filename)
+        print('$A1C3', end='\r')
+        raw_metadata['terminal_counter'] += terminal_counter
+        print('$A1C4', end='\r')
+        raw_metadata['nonterminal_counter'] += nonterminal_counter
+        print('$A1C5', end='\r')
 
     @classmethod
     def finalise_metadata(cls, encoder_label: str, hyperparameters: Dict[str, Any], raw_metadata_list: List[Dict[str, Any]]) -> Dict[str, Any]:
-        # update vocabulary todo
+        # JGD build vocabulary ?
         final_metadata = super().finalise_metadata(encoder_label, hyperparameters, raw_metadata_list)
-        merged_token_counter = Counter()
+        merged_context_filenames = list()
+        merged_terminal_counter = Counter()
+        merged_nonterminal_counter = Counter()
         for raw_metadata in raw_metadata_list:
-            merged_token_counter += raw_metadata['token_counter']
+            merged_context_filenames.extend(raw_metadata['context_filenames'])
+            merged_terminal_counter += raw_metadata['terminal_counter']
+            merged_nonterminal_counter += raw_metadata['nonterminal_counter']
 
-        if hyperparameters['%s_use_bpe' % encoder_label]:
-            token_vocabulary = BpeVocabulary(vocab_size=hyperparameters['%s_token_vocab_size' % encoder_label],
-                                             pct_bpe=hyperparameters['%s_pct_bpe' % encoder_label]
-                                             )
-            token_vocabulary.fit(merged_token_counter)
-        else:
-            token_vocabulary = Vocabulary.create_vocabulary(tokens=merged_token_counter,
-                                                            max_size=hyperparameters['%s_token_vocab_size' % encoder_label],
-                                                            count_threshold=hyperparameters['%s_token_vocab_count_threshold' % encoder_label])
+        final_metadata['context_filenames'] = merged_context_filenames
+        final_metadata['terminal_counter'] = merged_terminal_counter
+        final_metadata['nonterminal_counter'] = merged_nonterminal_counter
 
-        final_metadata['token_vocab'] = token_vocabulary
-        # Save the most common tokens for use in data augmentation:
-        final_metadata['common_tokens'] = merged_token_counter.most_common(50)
+        # if hyperparameters['%s_use_bpe' % encoder_label]:
+        #     token_vocabulary = BpeVocabulary(vocab_size=hyperparameters['%s_token_vocab_size' % encoder_label],
+        #                                      pct_bpe=hyperparameters['%s_pct_bpe' % encoder_label]
+        #                                      )
+        #     token_vocabulary.fit(merged_token_counter)
+        # else:
+        #     token_vocabulary = Vocabulary.create_vocabulary(tokens=merged_token_counter,
+        #                                                     max_size=hyperparameters['%s_token_vocab_size' % encoder_label],
+        #                                                     count_threshold=hyperparameters['%s_token_vocab_count_threshold' % encoder_label])
+        #
+        # final_metadata['token_vocab'] = token_vocabulary
+        # # Save the most common tokens for use in data augmentation:
+        # final_metadata['common_tokens'] = merged_token_counter.most_common(50)
         return final_metadata
 
     def __init__(self, label: str, hyperparameters: Dict[str, Any], metadata: Dict[str, Any]):
         super().__init__(label, hyperparameters, metadata)
+
+    @classmethod
+    def load_data_from_sample(cls,
+                              encoder_label: str,
+                              hyperparameters: Dict[str, Any],
+                              metadata: Dict[str, Any],
+                              language: str,
+                              data_to_brew: Any,
+                              data_to_load: Any,
+                              function_name: Optional[str],
+                              result_holder: Dict[str, Any],
+                              is_test: bool = True) -> bool:
+        """
+        Saves two versions of both the code and the query: one using the docstring as the query and the other using the
+        function-name as the query, and replacing the function name in the code with an out-of-vocab token.
+        Sub-tokenizes, converts, and pads both versions, and rejects empty samples.
+        """
+        # JGD extract AST-paths
+        ts = PathExtractor(data_to_brew, language)
+        ast_paths = ts.code2paths()
+        terminals, nonterminals = paths2tokens(ast_paths)
+        # count the tokens
+        terminal_counter = Counter(terminals)
+        nonterminal_counter = Counter(nonterminals)
+        # JGD todo check
+        result_holder['ast_contexts'] = ast_paths
+        result_holder['terminal_counter'] = terminal_counter
+        result_holder['nonterminal_counter'] = nonterminal_counter
+
+        # # Save the two versions of the code and query:
+        # data_holder = {QueryType.DOCSTRING.value: data_to_load, QueryType.FUNCTION_NAME.value: None}
+        # # Skip samples where the function name is very short, because it probably has too little information
+        # # to be a good search query.
+        # if not is_test and hyperparameters['fraction_using_func_name'] > 0. and function_name and \
+        #         len(function_name) >= hyperparameters['min_len_func_name_for_query']:
+        #     if encoder_label == 'query':
+        #         print('NOT EXPECTED')
+        #         # Set the query tokens to the function name, broken up into its sub-tokens:
+        #         data_holder[QueryType.FUNCTION_NAME.value] = split_identifier_into_parts(function_name)
+        #     elif encoder_label == 'code':
+        #         # In the code, replace the function name with the out-of-vocab token everywhere it appears:
+        #         data_holder[QueryType.FUNCTION_NAME.value] = [Vocabulary.get_unk() if token == function_name else token
+        #                                                       for token in data_to_load]
+        #
+        # # Sub-tokenize, convert, and pad both versions:
+        # for key, data in data_holder.items():
+        #     if not data:
+        #         result_holder[f'{encoder_label}_tokens_{key}'] = None
+        #         result_holder[f'{encoder_label}_tokens_mask_{key}'] = None
+        #         result_holder[f'{encoder_label}_tokens_length_{key}'] = None
+        #         continue
+        #     if hyperparameters[f'{encoder_label}_use_subtokens']:
+        #         data = cls._to_subtoken_stream(data,
+        #                                        mark_subtoken_end=hyperparameters[
+        #                                            f'{encoder_label}_mark_subtoken_end'])
+        #     tokens, tokens_mask = \
+        #         convert_and_pad_token_sequence(metadata['token_vocab'], list(data),
+        #                                        hyperparameters[f'{encoder_label}_max_num_tokens'])
+        #     # Note that we share the result_holder with different encoders, and so we need to make our identifiers
+        #     # unique-ish
+        #     result_holder[f'{encoder_label}_tokens_{key}'] = tokens
+        #     result_holder[f'{encoder_label}_tokens_mask_{key}'] = tokens_mask
+        #     result_holder[f'{encoder_label}_tokens_length_{key}'] = int(np.sum(tokens_mask))
+        #
+        # if result_holder[f'{encoder_label}_tokens_mask_{QueryType.DOCSTRING.value}'] is None or \
+        #         int(np.sum(result_holder[f'{encoder_label}_tokens_mask_{QueryType.DOCSTRING.value}'])) == 0:
+        #     return False
+
+        return True
+
+    def extend_minibatch_by_sample(self, batch_data: Dict[str, Any], sample: Dict[str, Any], is_train: bool=False,
+                                   query_type: QueryType = QueryType.DOCSTRING.value) -> bool:
+        """
+        Implements various forms of data augmentation.
+        """
+        # current_sample = dict()
+        #
+        # # Train with some fraction of samples having their query set to the function name instead of the docstring, and
+        # # their function name replaced with out-of-vocab in the code:
+        # current_sample['tokens'] = sample[f'{self.label}_tokens_{query_type}']
+        # current_sample['tokens_mask'] = sample[f'{self.label}_tokens_mask_{query_type}']
+        # current_sample['tokens_lengths'] = sample[f'{self.label}_tokens_length_{query_type}']
+        #
+        # # In the query, randomly add high-frequency tokens:
+        # # TODO: Add tokens with frequency proportional to their frequency in the vocabulary
+        # if is_train and self.label == 'query' and self.hyperparameters['query_random_token_frequency'] > 0.:
+        #     total_length = len(current_sample['tokens'])
+        #     length_without_padding = current_sample['tokens_lengths']
+        #     # Generate a list of places in which to insert tokens:
+        #     insert_indices = np.array([random.uniform(0., 1.) for _ in range(length_without_padding)])  # don't allow insertions in the padding
+        #     insert_indices = insert_indices < self.hyperparameters['query_random_token_frequency']  # insert at the correct frequency
+        #     insert_indices = np.flatnonzero(insert_indices)
+        #     if len(insert_indices) > 0:
+        #         # Generate the random tokens to add:
+        #         tokens_to_add = [random.randrange(0, len(self.metadata['common_tokens']))
+        #                          for _ in range(len(insert_indices))]  # select one of the most common tokens for each location
+        #         tokens_to_add = [self.metadata['common_tokens'][token][0] for token in tokens_to_add]  # get the word corresponding to the token we're adding
+        #         tokens_to_add = [self.metadata['token_vocab'].get_id_or_unk(token) for token in tokens_to_add]  # get the index within the vocab of the token we're adding
+        #         # Efficiently insert the added tokens, leaving the total length the same:
+        #         to_insert = 0
+        #         output_query = np.zeros(total_length, dtype=int)
+        #         for idx in range(min(length_without_padding, total_length - len(insert_indices))):  # iterate only through the beginning of the array where changes are being made
+        #             if to_insert < len(insert_indices) and idx == insert_indices[to_insert]:
+        #                 output_query[idx + to_insert] = tokens_to_add[to_insert]
+        #                 to_insert += 1
+        #             output_query[idx + to_insert] = current_sample['tokens'][idx]
+        #         current_sample['tokens'] = output_query
+        #         # Add the needed number of non-padding values to the mask:
+        #         current_sample['tokens_mask'][length_without_padding:length_without_padding + len(tokens_to_add)] = 1.
+        #         current_sample['tokens_lengths'] += len(tokens_to_add)
+        #
+        # # Add the current sample to the minibatch:
+        # [batch_data[key].append(current_sample[key]) for key in current_sample.keys() if key in batch_data.keys()]
+
+        return False
+
+    def embedding_layer(self, token_inp: tf.Tensor) -> tf.Tensor:
+        """
+        Creates embedding layer that is in common between many encoders.
+
+        Args:
+            token_inp:  2D tensor that is of shape (batch size, sequence length)
+
+        Returns:
+            3D tensor of shape (batch size, sequence length, embedding dimension)
+        """
+
+        token_embeddings = tf.get_variable(name='token_embeddings',
+                                           initializer=tf.glorot_uniform_initializer(),
+                                           shape=[len(self.metadata['token_vocab']),
+                                                  self.get_hyper('token_embedding_size')],
+                                           )
+        self.__embeddings = token_embeddings
+
+        token_embeddings = tf.nn.dropout(token_embeddings,
+                                         keep_prob=self.placeholders['dropout_keep_rate'])
+
+        return tf.nn.embedding_lookup(params=token_embeddings, ids=token_inp)
+
+    def get_token_embeddings(self) -> Tuple[tf.Tensor, List[str]]:
+        return (self.__embeddings, list(self.metadata['token_vocab'].id_to_token))
 
     @property
     def output_representation_size(self):
@@ -104,15 +235,19 @@ class AlonEncoder(SeqEncoder):
         with tf.variable_scope("alon_encoder"):
             self._make_placeholders()
 
-            model = AlonModel()
-
+            context_filenames = self.metadata['context_filenames']
+            terminal_counter = self.metadata['terminal_counter']
+            nonterminal_counter = self.metadata['nonterminal_counter']
+            print('$T1******', end='\r')
+            model = AlonModel(context_filenames, terminal_counter, nonterminal_counter)
+            print('$T2******', end='\r')
             self.placeholders['tokens_lengths'] = \
                 tf.placeholder(tf.int32, shape=[None], name='tokens_lengths')
-
+            print('$T3******', end='\r')
             self.placeholders['rnn_dropout_keep_rate'] = \
                 tf.placeholder(tf.float32, shape=[], name='rnn_dropout_keep_rate')
-
-            return model.make_model(is_train)
+            print('$T4******', end='\r')
+            return model.build_computation_graph(is_train)
 
     def init_minibatch(self, batch_data: Dict[str, Any]) -> None:
         super().init_minibatch(batch_data)
@@ -134,7 +269,7 @@ UNK = '<UNK>'
 
 
 class AlonModel:
-    def __init__(self):
+    def __init__(self, context_filenames, terminal_counter, nonterminal_counter):
         # config
         self.MAX_CONTEXTS = 200
         self.EMBED_SIZE = 128
@@ -144,27 +279,22 @@ class AlonModel:
         self.EMBED_DROPOUT_KEEP_PROB = 0.75
         self.RNN_DROPOUT_KEEP_PROB = 0.5
         # The context vector is actually a concatenation of the embedded
-        # leaf & token vectors and the embedded path vector.
+        # source & target vectors and the embedded middle path vector.
         self.CONTEXT_VECTOR_SIZE = 3 * self.EMBED_SIZE
         self.CODE_VECTOR_SIZE = self.EMBED_SIZE
 
-        with open('stats.c2s', 'rb') as file:
-            leaf_stats = pickle.load(file)
-            node_stats = pickle.load(file)
-            print('stats loaded.')
+        terminal2index, self.terminal_size = self.stats2data(terminal_counter)
+        print('Loaded terminal token size: %d' % self.terminal_size)
+        nonterminal2index, self.nonterminal_size = self.stats2data(nonterminal_counter)
+        print('Loaded nonterminal token size: %d' % self.nonterminal_size)
 
-        leaf2index, self.leaf_size = self.stats2data(leaf_stats)
-        print('Loaded leaf token size: %d' % self.leaf_size)
-        node2index, self.node_size = self.stats2data(node_stats)
-        print('Loaded node token size: %d' % self.node_size)
-
-        self.leaf_table = self.initialize_table(leaf2index, leaf2index[UNK])
-        self.node_table = self.initialize_table(node2index, node2index[UNK])
+        self.terminal_table = self.initialize_table(terminal2index, terminal2index[UNK])
+        self.nonterminal_table = self.initialize_table(nonterminal2index, nonterminal2index[UNK])
         self.context_pad = f'{PAD},{PAD},{PAD}'
 
         record_defaults = [[self.context_pad]] * self.MAX_CONTEXTS
         dataset = tf.data.experimental.CsvDataset(
-            'context.c2s', record_defaults=record_defaults, field_delim=' ',
+            context_filenames, record_defaults=record_defaults, field_delim='\n',
             use_quote_delim=False, buffer_size=100 * 1024 * 1024)
         # dataset = dataset.shuffle(10000, reshuffle_each_iteration=True)
         dataset = dataset.apply(tf.data.experimental.map_and_batch(
@@ -212,10 +342,10 @@ class AlonModel:
         if index in (0, 2):
             dense_tokens = tf.slice(dense_tokens, [0, 0], [-1, self.MAX_NAME_PARTS])
             # (max_contexts, max_length)
-            token_ids = self.leaf_table.lookup(dense_tokens)
+            token_ids = self.terminal_table.lookup(dense_tokens)
         else:
             # (max_contexts, max_length)
-            token_ids = self.node_table.lookup(dense_tokens)
+            token_ids = self.nonterminal_table.lookup(dense_tokens)
         # (max_contexts)
         token_lengths = tf.reduce_sum(tf.cast(tf.not_equal(dense_tokens, PAD), tf.int32), -1)
         return token_ids, token_lengths
@@ -255,7 +385,7 @@ class AlonModel:
                 'SOURCE_LENGTHS': source_lengths, 'MIDDLE_LENGTHS': middle_lengths,
                 'TARGET_LENGTHS': target_lengths}
 
-    def make_model(self, is_train: bool = False):
+    def build_computation_graph(self, is_train: bool = False):
         context_mask = self.input_tensors['CONTEXT_MASK']
         source_ids = self.input_tensors['SOURCE_IDS']
         middle_ids = self.input_tensors['MIDDLE_IDS']
@@ -265,19 +395,19 @@ class AlonModel:
         target_lengths = self.input_tensors['TARGET_LENGTHS']
 
         with tf.variable_scope('alon'):
-            leaf_token = tf.get_variable(
-                'LEAF_TOKEN', shape=(self.leaf_size, self.EMBED_SIZE), dtype=tf.float32,
+            terminal_token = tf.get_variable(
+                'terminal_token', shape=(self.terminal_size, self.EMBED_SIZE), dtype=tf.float32,
                 initializer=tf.contrib.layers.variance_scaling_initializer(factor=1.0, mode='FAN_OUT', uniform=True))
-            node_token = tf.get_variable(
-                'NODE_TOKEN', shape=(self.node_size, self.EMBED_SIZE), dtype=tf.float32,
+            nonterminal_token = tf.get_variable(
+                'nonterminal_token', shape=(self.nonterminal_size, self.EMBED_SIZE), dtype=tf.float32,
                 initializer=tf.contrib.layers.variance_scaling_initializer(factor=1.0, mode='FAN_OUT', uniform=True))
 
             # (batch, max_contexts, max_name_parts, dim)
-            source_embed = tf.nn.embedding_lookup(params=leaf_token, ids=source_ids)
+            source_embed = tf.nn.embedding_lookup(params=terminal_token, ids=source_ids)
             # (batch, max_contexts, max_path_length+1, dim)
-            middle_embed = tf.nn.embedding_lookup(params=node_token, ids=middle_ids)
+            middle_embed = tf.nn.embedding_lookup(params=nonterminal_token, ids=middle_ids)
             # (batch, max_contexts, max_name_parts, dim)
-            target_embed = tf.nn.embedding_lookup(params=leaf_token, ids=target_ids)
+            target_embed = tf.nn.embedding_lookup(params=terminal_token, ids=target_ids)
 
             # (batch, max_contexts, max_name_parts, 1)
             source_mask = tf.expand_dims(

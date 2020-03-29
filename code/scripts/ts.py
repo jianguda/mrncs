@@ -1,10 +1,11 @@
-import re
 import itertools
+import re
+import traceback
 from tree_sitter import Language, Parser
 
 
-class TS:
-    def __init__(self, code, lang='python'):
+class PathExtractor:
+    def __init__(self, code, language='python'):
         # First you'll need a Tree-sitter language implementation for
         # each language that you want to parse. You can clone some of
         # the existing language repos or create your own:
@@ -21,7 +22,7 @@ class TS:
         # immediately if the library has already been compiled since the
         # last time its source code was modified:
 
-        csn_so = 'build/csn.so'
+        csn_so = 'scripts/build/csn.so'
         # Language.build_library(
         #   csn_so,
         #   [
@@ -44,7 +45,7 @@ class TS:
 
         self.code = code
         self.parser = Parser()
-        self.parser.set_language(Language(csn_so, lang))
+        self.parser.set_language(Language(csn_so, language))
 
     def print_func_name(self, root):
         function_node = root.children[0]
@@ -71,19 +72,36 @@ class TS:
         # Inspect the resulting Tree:
         tree = self.parser.parse(self.code.encode())
         root = tree.root_node
-        # print(root.type)
-        # print(root.sexp())
-        terminals = self.gen_terminals(root)
-        ast_paths = self.gen_paths(terminals)
-        # print(f'{"@" * 9}terminals\n{terminals}')
-        # print(f'{"@" * 9}ast_paths\n{ast_paths}')
+        terminals = None
+        ast_paths = None
+        try:
+            terminals = self.gen_terminals(root)
+            ast_paths = self.gen_paths(terminals)
+        except IndexError:
+            print(f'{"@" * 9}code\n{self.code}')
+            print(f'{"@" * 9}sexp\n{root.sexp()}')
+            if terminals:
+                print(f'{"@" * 9}terminals\n{terminals}')
+            if ast_paths:
+                print(f'{"@" * 9}ast_paths\n{ast_paths}')
+            traceback.print_exc()
+            # return None
         return ast_paths
 
     def lookup(self, node):
         node_type, node_value = None, None
         if node.type == 'call':
-            node_type = 'Call'
-            node_value = 'Call'
+            node_type = 'call'
+            node_value = 'call'
+        elif node.type == 'body':
+            node_type = 'body'
+            node_value = 'body'
+        elif node.type == 'module':
+            node_type = 'module'
+            node_value = 'module'
+        elif node.type == 'ERROR':
+            node_type = 'module'
+            node_value = 'module'
         elif node.type == 'unary_operator':
             node_type = 'unary_operator'
             node = node.children[0]
@@ -92,8 +110,8 @@ class TS:
             node_type = 'identifier'
             node_value = self.node2token(node)
             if node_value == 'or':
-                node_type = 'BoolOr'
-                node_value = 'BoolOr'
+                node_type = 'bop'
+                node_value = 'bop'
         return node_type, node_value
 
     def gen_paths(self, terminals):
@@ -169,12 +187,6 @@ def demo():
     return match1(url, r'youtube\\.com/v/([^/?]+)')
         + parse_query_param(url, 'v')
         + parse_query_param(parse_query_param(url, 'u'), 'v')"""
-    tree_sitter = TS(code)
+    tree_sitter = PathExtractor(code)
     paths = tree_sitter.code2paths()
     print(paths)
-
-
-demo()
-# todo test on more samples
-# todo check on other languages
-# cd /mnt/c/Users/jian/PycharmProjects/csn/code/scripts
