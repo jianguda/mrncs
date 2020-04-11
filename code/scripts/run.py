@@ -1,5 +1,4 @@
 import pickle
-import sys
 import traceback
 from collections import Counter
 from glob import glob
@@ -7,23 +6,7 @@ from pathlib import Path
 
 from dpu_utils.utils import load_jsonl_gz
 
-from .extract import tree2paths
-from .parse import code2tree
-from .ts import PathExtractor
-
-
-# using TreeSitter, for all 6 languages
-def code2paths(code):
-    ts = PathExtractor(code)
-    paths = ts.code2paths()
-    return paths
-
-
-# using Python's AST module, only for Python
-def code2paths4py(code):
-    tree = code2tree(code)
-    paths = tree2paths(tree)
-    return paths
+from .ts import code2paths, code2paths4py
 
 
 # JGD for alon_encoder
@@ -41,8 +24,8 @@ def paths2tokens(paths):
 
 
 def collect_filenames(path):
-    # pattern = path / "**/*_0.jsonl.gz"
-    pattern = path / "**/*.jsonl.gz"
+    pattern = path / "**/*_0.jsonl.gz"
+    # pattern = path / "**/*.jsonl.gz"
     filenames = glob(str(pattern), recursive=True)
     return filenames
 
@@ -54,8 +37,7 @@ def prepare_data(filenames):
             yield code
 
 
-def print_data(ast_contexts, terminal_counter, nonterminal_counter):
-    print(f'{"@" * 9}ast_contexts\n{ast_contexts}')
+def print_data(terminal_counter, nonterminal_counter):
     print(f'{"@" * 9}terminal_counter\n{terminal_counter}')
     print(f'{"@" * 9}nonterminal_counter\n{nonterminal_counter}')
 
@@ -99,29 +81,31 @@ def dump_data(terminal_counter, nonterminal_counter, path):
         # print(f'counters saved to: {counters_file}')
 
 
-def process_data(data, path=None):
+def process_data(data, language='python', path=None):
     success_num = 0
     error_num = 0
     terminal_counter = Counter()
     nonterminal_counter = Counter()
     for code in data:
         try:
-            ast_paths = code2paths(code)
-            # ast_paths = code2paths4py(code)
-            terminals, nonterminals = paths2tokens(ast_paths)
+            # JGD consider the top1M paths, just like in code2vec
+            tree_paths = code2paths(code, language)
+            # tree_paths = code2paths4py(code)
+            terminals, nonterminals = paths2tokens(tree_paths)
             terminal_counter += Counter(terminals)
             nonterminal_counter += Counter(nonterminals)
-            if path is not None:
+            if path is None:
+                print('\n'.join(tree_paths))
+            else:
                 contexts_file = path / f'contexts.csv'
                 with open(contexts_file, 'a') as file:
-                    file.write('\n'.join(ast_paths) + '\n')
+                    file.write('\n'.join(tree_paths) + '\n')
                     # print(f'contexts saved to: {contexts_file}')
             success_num += 1
             print(f'success_num:{success_num}\t\terror_num:{error_num}', end='\r')
         except (AttributeError, IndexError, SyntaxError, TypeError):
             error_num += 1
             traceback.print_exc()
-            # sys.exit()
     return terminal_counter, nonterminal_counter
     # return ast_contexts, None, None
 
@@ -130,27 +114,35 @@ def run4corpus(language='python', locally=False):
     path = get_path(language, locally)
     filenames = collect_filenames(path)
     data = prepare_data(filenames)
-    terminal_counter, nonterminal_counter = process_data(data, path)
+    terminal_counter, nonterminal_counter = process_data(data, language, path)
     dump_data(terminal_counter, nonterminal_counter, path)
 
 
-def run4file():
+def run4file(language='python'):
     path = Path()
     filenames = ['python_test_0.jsonl.gz']
     data = prepare_data(filenames)
-    terminal_counter, nonterminal_counter = process_data(data, path)
+    terminal_counter, nonterminal_counter = process_data(data, language, path)
     dump_data(terminal_counter, nonterminal_counter, path)
-    # print_data(ast_contexts, terminal_counter, nonterminal_counter)
+    # print_data(terminal_counter, nonterminal_counter)
 
 
 def run4demo():
-    code = """def sina_xml_to_url_list(xml_data):
-    rawurl = []
-    dom = parseString(xml_data)
-    for node in dom.getElementsByTagName('durl'):
-        url = node.getElementsByTagName('url')[0]
-        rawurl.append(url.childNodes[0].data)
-    return rawurl"""
-    data = [code]
-    ast_contexts, terminal_counter, nonterminal_counter = process_data(data)
-    print_data(ast_contexts, terminal_counter, nonterminal_counter)
+    go_code = """func (s *SkuM1Small) GetInnkeeperClient() (innkeeperclient.InnkeeperClient, error) {\n\tvar err error\n\tif s.Client == nil {\n\t\tif clnt, err := s.InitInnkeeperClient(); err == nil {\n\t\t\ts.Client = clnt\n\t\t} else {\n\t\t\tlo.G.Error(\"error parsing current cfenv: \", err.Error())\n\t\t}\n\t}\n\treturn s.Client, err\n}"""
+    java_code = """protected void notifyAttemptToReconnectIn(int seconds) {\n        if (isReconnectionAllowed()) {\n            for (ConnectionListener listener : connection.connectionListeners) {\n                listener.reconnectingIn(seconds);\n            }\n        }\n    }"""
+    javascript_code = """function (context, grunt) {\n  this.context = context;\n  this.grunt = grunt;\n\n  // Merge task-specific and/or target-specific options with these defaults.\n  this.options = context.options(defaultOptions);\n}"""
+    php_code = """public function init()\n    {\n        parent::init();\n        if ($this->message === null) {\n            $this->message = \\Reaction::t('rct', '{attribute} is invalid.');\n        }\n    }"""
+    python_code = """def get_url_args(url):\n    \"\"\" Returns a dictionary from a URL params \"\"\"\n    url_data = urllib.parse.urlparse(url)\n    arg_dict = urllib.parse.parse_qs(url_data.query)\n    return arg_dict"""
+    ruby_code = """def part(name)\n      parts.select {|p| p.name.downcase == name.to_s.downcase }.first\n    end"""
+
+    data = [go_code, java_code, javascript_code, php_code, python_code, ruby_code]
+    languages = ['go', 'java', 'javascript', 'php', 'python', 'ruby']
+    process_data([go_code], 'go')
+    process_data([java_code], 'java')
+    process_data([javascript_code], 'javascript')
+    process_data([php_code], 'php')
+    process_data([python_code], 'python')
+    process_data([ruby_code], 'ruby')
+    # for code, language in zip(data, languages):
+    #     terminal_counter, nonterminal_counter = process_data([code], language)
+    #     print_data(terminal_counter, nonterminal_counter)

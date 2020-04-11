@@ -13,7 +13,7 @@ from dpu_utils.codeutils import split_identifier_into_parts
 from dpu_utils.mlutils import Vocabulary
 
 from .seq_encoder import Encoder, QueryType
-from scripts.ts import PathExtractor
+from scripts.ts import code2paths
 from scripts.run import get_path, load_data, paths2tokens
 
 
@@ -103,8 +103,7 @@ class AlonEncoder(Encoder):
         Sub-tokenizes, converts, and pads both versions, and rejects empty samples.
         """
         # JGD extract AST-paths
-        ts = PathExtractor(data_to_brew, language)
-        ast_paths = ts.code2paths()
+        ast_paths = code2paths(data_to_brew, language)  # JGD check ...
         terminals, nonterminals = paths2tokens(ast_paths)
         # count the tokens
         terminal_counter = Counter(terminals)
@@ -260,8 +259,8 @@ class AlonEncoder(Encoder):
         feed_dict[self.placeholders['rnn_dropout_keep_rate']] = \
             self.get_hyper('rnn_dropout_keep_rate') if is_train else 1.0
 
-        write_to_feed_dict(feed_dict, self.placeholders['tokens'], batch_data['tokens'])
-        write_to_feed_dict(feed_dict, self.placeholders['tokens_lengths'], batch_data['tokens_lengths'])
+        # write_to_feed_dict(feed_dict, self.placeholders['tokens'], batch_data['tokens'])
+        # write_to_feed_dict(feed_dict, self.placeholders['tokens_lengths'], batch_data['tokens_lengths'])
 
 
 PAD = '<PAD>'
@@ -295,7 +294,7 @@ class AlonModel:
         record_defaults = [[self.context_pad]] * self.MAX_CONTEXTS
         dataset = tf.data.experimental.CsvDataset(
             context_filenames, record_defaults=record_defaults, field_delim='\n',
-            use_quote_delim=False, buffer_size=100 * 1024 * 1024)
+            use_quote_delim=False, buffer_size=1000 * 1024 * 1024)
         # dataset = dataset.shuffle(10000, reshuffle_each_iteration=True)
         dataset = dataset.apply(tf.data.experimental.map_and_batch(
             map_func=self.process_dataset, batch_size=256))
@@ -326,28 +325,39 @@ class AlonModel:
     def context2info(self, context, index):
         # (max_contexts, 1)
         context_str = tf.slice(context, [0, index], [self.MAX_CONTEXTS, 1])
+        print(f'context_str\n{context_str.get_shape()}')
         # (max_contexts)
         flat_context_str = tf.reshape(context_str, [-1])
+        print(f'flat_context_str\n{flat_context_str.get_shape()}')
         # (max_contexts, max_name_parts)
         context_tokens = tf.string_split(flat_context_str, delimiter='|', skip_empty=False)
+        print(f'context_tokens\n{context_tokens.get_shape()}')
         if index in (0, 2):
             max_length = tf.maximum(tf.to_int64(self.MAX_NAME_PARTS), context_tokens.dense_shape[1])
+            print(f'max_length\n{max_length.get_shape()}')
         else:
-            max_length = self.MAX_PATH_LENGTH
+            max_length = tf.to_int64(self.MAX_PATH_LENGTH)
+            print(f'max_length\n{max_length.get_shape()}')
         # (batch, max_contexts, max_length)
         # (max_contexts, max_length)
         sparse_tokens = tf.sparse.SparseTensor(indices=context_tokens.indices, values=context_tokens.values,
                                                dense_shape=[self.MAX_CONTEXTS, max_length])
+        print(f'sparse_tokens\n{sparse_tokens.get_shape()}')
         dense_tokens = tf.sparse.to_dense(sp_input=sparse_tokens, default_value=PAD)
+        print(f'dense_tokens\n{dense_tokens.get_shape()}')
         if index in (0, 2):
             dense_tokens = tf.slice(dense_tokens, [0, 0], [-1, self.MAX_NAME_PARTS])
+            print(f'dense_tokens\n{dense_tokens.get_shape()}')
             # (max_contexts, max_length)
             token_ids = self.terminal_table.lookup(dense_tokens)
+            print(f'token_ids\n{token_ids.get_shape()}')
         else:
             # (max_contexts, max_length)
             token_ids = self.nonterminal_table.lookup(dense_tokens)
+            print(f'token_ids\n{token_ids.get_shape()}')
         # (max_contexts)
         token_lengths = tf.reduce_sum(tf.cast(tf.not_equal(dense_tokens, PAD), tf.int32), -1)
+        print(f'token_lengths\n{token_lengths.get_shape()}')
         return token_ids, token_lengths
 
     def process_dataset(self, *row_parts):
@@ -362,23 +372,35 @@ class AlonModel:
         # rand_indices = tf.random_shuffle(tf.range(safe_limit))[:self.MAX_CONTEXTS]
         # context_str = tf.gather(all_contexts, rand_indices)  # (max_contexts,)
         context_str = row_parts[:self.MAX_CONTEXTS]  # (max_contexts,)
+
         ######
         # contexts (max_contexts, )
         contexts = tf.string_split(context_str, delimiter=',', skip_empty=False)
+        print(f'contexts\n{contexts.get_shape()}')
         shape4contexts = [self.MAX_CONTEXTS, 3]
         sparse_contexts = tf.sparse.SparseTensor(indices=contexts.indices,
                                                  values=contexts.values,
                                                  dense_shape=shape4contexts)
+        print(f'sparse_contexts\n{sparse_contexts.get_shape()}')
         dense_contexts = tf.sparse.to_dense(sp_input=sparse_contexts, default_value=PAD)
+        print(f'dense_contexts\n{dense_contexts.get_shape()}')
         # (batch, max_contexts, 3)
         dense_contexts = tf.reshape(dense_contexts, shape=shape4contexts)
+        print(f'dense_contexts\n{dense_contexts.get_shape()}')
         #########
         source_ids, source_lengths = self.context2info(dense_contexts, 0)
+        print(f'source_ids\n{source_ids.get_shape()}')
+        print(f'source_lengths\n{source_lengths.get_shape()}')
         middle_ids, middle_lengths = self.context2info(dense_contexts, 1)
+        print(f'middle_ids\n{middle_ids.get_shape()}')
+        print(f'middle_lengths\n{middle_lengths.get_shape()}')
         target_ids, target_lengths = self.context2info(dense_contexts, 2)
+        print(f'target_ids\n{target_ids.get_shape()}')
+        print(f'target_lengths\n{target_lengths.get_shape()}')
         #########
         context_mask = tf.to_float(tf.not_equal(
             tf.reduce_max(source_ids, -1) + tf.reduce_max(middle_ids, -1) + tf.reduce_max(target_ids, -1), 0))
+        print(f'context_mask\n{context_mask.get_shape()}')
 
         return {'CONTEXT_MASK': context_mask, 'SOURCE_IDS': source_ids,
                 'MIDDLE_IDS': middle_ids, 'TARGET_IDS': target_ids,
@@ -398,66 +420,90 @@ class AlonModel:
             terminal_token = tf.get_variable(
                 'terminal_token', shape=(self.terminal_size, self.EMBED_SIZE), dtype=tf.float32,
                 initializer=tf.contrib.layers.variance_scaling_initializer(factor=1.0, mode='FAN_OUT', uniform=True))
+            print(f'terminal_token\n{terminal_token.get_shape()}')
             nonterminal_token = tf.get_variable(
                 'nonterminal_token', shape=(self.nonterminal_size, self.EMBED_SIZE), dtype=tf.float32,
                 initializer=tf.contrib.layers.variance_scaling_initializer(factor=1.0, mode='FAN_OUT', uniform=True))
+            print(f'nonterminal_token\n{nonterminal_token.get_shape()}')
 
             # (batch, max_contexts, max_name_parts, dim)
             source_embed = tf.nn.embedding_lookup(params=terminal_token, ids=source_ids)
+            print(f'source_embed\n{source_embed.get_shape()}')
             # (batch, max_contexts, max_path_length+1, dim)
             middle_embed = tf.nn.embedding_lookup(params=nonterminal_token, ids=middle_ids)
+            print(f'middle_embed\n{middle_embed.get_shape()}')
             # (batch, max_contexts, max_name_parts, dim)
             target_embed = tf.nn.embedding_lookup(params=terminal_token, ids=target_ids)
+            print(f'target_embed\n{target_embed.get_shape()}')
 
             # (batch, max_contexts, max_name_parts, 1)
             source_mask = tf.expand_dims(
                 tf.sequence_mask(source_lengths, maxlen=self.MAX_NAME_PARTS, dtype=tf.float32), -1)
+            print(f'source_mask\n{source_mask.get_shape()}')
             # (batch, max_contexts, max_name_parts, 1)
             target_mask = tf.expand_dims(
                 tf.sequence_mask(target_lengths, maxlen=self.MAX_NAME_PARTS, dtype=tf.float32), -1)
+            print(f'target_mask\n{target_mask.get_shape()}')
 
             # (batch, max_contexts, dim)
             source_token_sum = tf.reduce_sum(source_embed * source_mask, axis=2)
+            print(f'source_token_sum\n{source_token_sum.get_shape()}')
             # (batch, max_contexts, rnn_size)
             middle_aggregation = self.aggregate_path(middle_embed, middle_lengths, context_mask, is_train)
+            print(f'middle_aggregation\n{middle_aggregation.get_shape()}')
             # (batch, max_contexts, dim)
             target_token_sum = tf.reduce_sum(target_embed * target_mask, axis=2)
+            print(f'target_token_sum\n{target_token_sum.get_shape()}')
 
             # (batch, max_contexts, dim * 2 + rnn_size)
             context_embed = tf.concat([source_token_sum, middle_aggregation, target_token_sum], axis=-1)
+            print(f'context_embed\n{context_embed.get_shape()}')
             # (batch, max_contexts, dim * 3)
             # context_embed = tf.concat([source_token_sum, middle_aggregation, target_token_sum], axis=-1)
             if is_train:
                 context_embed = tf.nn.dropout(context_embed, self.EMBED_DROPOUT_KEEP_PROB)
+                print(f'context_embed\n{context_embed.get_shape()}')
 
             # (batch * max_contexts, dim * 3)
             flat_embed = tf.reshape(context_embed, [-1, self.CONTEXT_VECTOR_SIZE])
+            print(f'flat_embed\n{flat_embed.get_shape()}')
             transform_shape = (self.CONTEXT_VECTOR_SIZE, self.CODE_VECTOR_SIZE)
             transform_param = tf.get_variable('TRANSFORM', shape=transform_shape, dtype=tf.float32)
+            print(f'transform_param\n{transform_param.get_shape()}')
 
             # (batch * max_contexts, dim * 3)
             flat_embed = tf.tanh(tf.matmul(flat_embed, transform_param))
+            print(f'flat_embed\n{flat_embed.get_shape()}')
             attention_shape = (self.CODE_VECTOR_SIZE, 1)
             attention_param = tf.get_variable('ATTENTION', shape=attention_shape, dtype=tf.float32)
+            print(f'attention_param\n{attention_param.get_shape()}')
 
             # (batch * max_contexts, 1)
             contexts_weights = tf.matmul(flat_embed, attention_param)
+            print(f'contexts_weights\n{contexts_weights.get_shape()}')
             # (batch, max_contexts, 1)
             batched_contexts_weights = tf.reshape(contexts_weights, [-1, self.MAX_CONTEXTS, 1])
+            print(f'batched_contexts_weights\n{batched_contexts_weights.get_shape()}')
             # (batch, max_contexts)
             mask = tf.math.log(context_mask)
+            print(f'mask\n{mask.get_shape()}')
             # (batch, max_contexts, 1)
             mask = tf.expand_dims(mask, axis=2)
+            print(f'mask\n{mask.get_shape()}')
             # (batch, max_contexts, 1)
             batched_contexts_weights += mask
+            print(f'batched_contexts_weights\n{batched_contexts_weights.get_shape()}')
             # (batch, max_contexts, 1)
             attention_weights = tf.nn.softmax(batched_contexts_weights, axis=1)
+            print(f'attention_weights\n{attention_weights.get_shape()}')
 
             batched_shape = (-1, self.MAX_CONTEXTS, self.CODE_VECTOR_SIZE)
             batched_embed = tf.reshape(flat_embed, shape=batched_shape)
+            print(f'batched_embed\n{batched_embed.get_shape()}')
             # (batch, dim * 3)
             # (batch, max_contexts, vector_size)
             code_vectors = tf.reduce_sum(tf.multiply(batched_embed, attention_weights), axis=1)
+            print(f'code_vectors\n{code_vectors.get_shape()}')
 
         return code_vectors
 
@@ -466,19 +512,27 @@ class AlonModel:
         # path_length:          (batch, max_contexts)
         # context_mask:         (batch, max_contexts)
         max_contexts = tf.shape(path_embed)[1]
+        print(f'max_contexts\n{max_contexts.get_shape()}')
         # (batch * max_contexts, max_path_length+1, dim)
         flat_paths = tf.reshape(path_embed, shape=[-1, self.MAX_PATH_LENGTH, self.EMBED_SIZE])
+        print(f'flat_paths\n{flat_paths.get_shape()}')
         # (batch * max_contexts)
         flat_context_mask = tf.reshape(context_mask, [-1])
+        print(f'flat_context_mask\n{flat_context_mask.get_shape()}')
         # (batch * max_contexts)
         lengths = tf.multiply(tf.reshape(path_lengths, [-1]), tf.cast(flat_context_mask, tf.int32))
+        print(f'lengths\n{lengths.get_shape()}')
 
         # BiRNN:
         rnn_cell_fw = tf.nn.rnn_cell.LSTMCell(self.RNN_SIZE // 2)
+        # print(f'rnn_cell_fw\n{rnn_cell_fw.get_shape()}')
         rnn_cell_bw = tf.nn.rnn_cell.LSTMCell(self.RNN_SIZE // 2)
+        # print(f'rnn_cell_bw\n{rnn_cell_bw.get_shape()}')
         if is_train:
             rnn_cell_fw = tf.nn.rnn_cell.DropoutWrapper(rnn_cell_fw, output_keep_prob=self.RNN_DROPOUT_KEEP_PROB)
+            # print(f'rnn_cell_fw\n{rnn_cell_fw.get_shape()}')
             rnn_cell_bw = tf.nn.rnn_cell.DropoutWrapper(rnn_cell_bw, output_keep_prob=self.RNN_DROPOUT_KEEP_PROB)
+            # print(f'rnn_cell_bw\n{rnn_cell_bw.get_shape()}')
 
         # Merge fwd/bwd outputs:
         # _, final_states = tf.nn.bidirectional_dynamic_rnn(
@@ -490,8 +544,11 @@ class AlonModel:
         #                             axis=-1)  # concat fwd & bwd
         _, (state_fw, state_bw) = tf.nn.bidirectional_dynamic_rnn(
             cell_fw=rnn_cell_fw, cell_bw=rnn_cell_bw, inputs=flat_paths, sequence_length=lengths, dtype=tf.float32)
+        # print(f'state_fw\n{state_fw.get_shape()}')
+        # print(f'state_bw\n{state_bw.get_shape()}')
         # (batch * max_contexts, rnn_size)
         rnn_final_state = tf.concat([state_fw.h, state_bw.h], axis=-1)
+        print(f'rnn_final_state\n{rnn_final_state.get_shape()}')
 
         # (batch, max_contexts, rnn_size)
         return tf.reshape(rnn_final_state, shape=[-1, max_contexts, self.RNN_SIZE])
