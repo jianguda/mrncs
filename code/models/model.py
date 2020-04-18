@@ -161,7 +161,7 @@ class Model(ABC):
         self.__tensorboard_dir = log_save_dir
 
         # whether the data is load in batch (AST-paths) or one by one (tokens)
-        self._load_in_once = False
+        self._load_data = False
 
     @property
     def query_metadata(self):
@@ -425,27 +425,24 @@ class Model(ABC):
             per_code_language_metadata: DefaultDict[str, Dict[str, Any]] = defaultdict(self.__code_encoder_type.init_metadata)
             print('$A1B', end='\r')
 
-            # TODO check this part
             sample_language = None
             for raw_sample in file_path.read_by_file_suffix():
                 sample_language = raw_sample['language']
                 print('$A1C', end='\r')
-                if not self._load_in_once:
-                    self.__code_encoder_type.load_metadata_from_sample(sample_language, None, raw_sample['code_tokens'],
-                                                                       per_code_language_metadata[sample_language],
-                                                                       self.hyperparameters['code_use_subtokens'],
-                                                                       self.hyperparameters['code_mark_subtoken_end'])
+                self.__code_encoder_type.load_metadata_from_sample(sample_language, raw_sample['code'],
+                                                                   raw_sample['code_tokens'],
+                                                                   per_code_language_metadata[sample_language],
+                                                                   self.hyperparameters['code_use_subtokens'],
+                                                                   self.hyperparameters['code_mark_subtoken_end'])
                 print('$A1D', end='\r')
                 self.__query_encoder_type.load_metadata_from_sample('', None,
                                                                     [d.lower() for d in raw_sample['docstring_tokens']],
                                                                     raw_query_metadata)
                 print('$A1E', end='\r')
 
-            if self._load_in_once:
-                self.__code_encoder_type.load_metadata_from_sample(sample_language, None, None,
-                                                                   per_code_language_metadata[sample_language],
-                                                                   self.hyperparameters['code_use_subtokens'],
-                                                                   self.hyperparameters['code_mark_subtoken_end'])
+            if self._load_data:
+                # JGD try another way to load preprocessed data
+                pass
             yield (raw_query_metadata, per_code_language_metadata)
 
         def received_result_callback(metadata_parser_result: Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]]):
@@ -461,8 +458,9 @@ class Model(ABC):
         def finished_callback():
             pass
 
-        if self._load_in_once:
-            parallelize = False
+        # JGD check again
+        # if self._load_data:
+        #     parallelize = False
 
         if parallelize:
             run_jobs_in_parallel(get_data_files_from_directory(data_dirs, max_files_per_dir),
@@ -759,10 +757,13 @@ class Model(ABC):
         epoch_loss, loss = 0.0, 0.0
         mrr_sum, mrr = 0.0, 0.0
         epoch_start = time.time()
+        print('$SSS0')
         data_generator = self.__split_data_into_minibatches(data, is_train=is_train, compute_language_weightings=True)
+        print('$SSS1')
         samples_used_so_far = 0
         printed_one_line = False
         for minibatch_counter, (batch_data_dict, samples_in_batch, samples_used_so_far, _) in enumerate(data_generator):
+            print('$SSS2')
             if not quiet or (minibatch_counter % 100) == 99:
                 print("%s: Batch %5i (has %i samples). Processed %i samples. Loss so far: %.4f.  MRR so far: %.4f "
                       % (epoch_name, minibatch_counter, samples_in_batch,
@@ -771,16 +772,22 @@ class Model(ABC):
                       end="\r" if not quiet else '\n')
                 printed_one_line = True
             ops_to_run = {'loss': self.__ops['loss'], 'mrr': self.__ops['mrr']}
+            print('$SSS3')
             if is_train:
                 ops_to_run['train_step'] = self.__ops['train_step']
+            print('$SSS4')
             op_results = self.__sess.run(ops_to_run, feed_dict=batch_data_dict)
+            print('$SSS5')
             assert not np.isnan(op_results['loss'])
+            print('$SSS6')
 
             epoch_loss += op_results['loss'] * samples_in_batch
             mrr_sum += np.sum(op_results['mrr'])
+            print('$SSS7')
 
             loss = epoch_loss / max(1, samples_used_so_far)
             mrr = mrr_sum / max(1, samples_used_so_far)
+            print('$SSS8')
 
             # additional training logs
             if (minibatch_counter % 100) == 0 and is_train:
@@ -788,6 +795,7 @@ class Model(ABC):
                            'train-mrr': op_results['mrr']})
 
             minibatch_counter += 1
+            print('$SSS9')
 
         used_time = time.time() - epoch_start
         if printed_one_line:

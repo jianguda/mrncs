@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Iterable, Optional, Tuple
+from typing import Dict, Any, List, Iterable, Optional, Tuple, Union
 
 import tensorflow as tf
 from utils.tfutils import write_to_feed_dict
@@ -7,21 +7,83 @@ from collections import Counter
 import numpy as np
 import random
 
+from utils.bpevocabulary import BpeVocabulary
 from utils.tfutils import convert_and_pad_token_sequence
+from utils.tfutils import write_to_feed_dict, pool_sequence_embedding
 
 from dpu_utils.codeutils import split_identifier_into_parts
 from dpu_utils.mlutils import Vocabulary
 
 from .seq_encoder import Encoder, QueryType
-from scripts.ts import code2paths
+from scripts.ts import code2paths, code2identifiers
 from scripts.run import get_path, load_data, paths2tokens
+
+
+def __make_rnn_cell(cell_type: str,
+                    hidden_size: int,
+                    dropout_keep_rate: Union[float, tf.Tensor]=1.0,
+                    recurrent_dropout_keep_rate: Union[float, tf.Tensor]=1.0) \
+        -> tf.nn.rnn_cell.RNNCell:
+    """
+    Args:
+        cell_type: "lstm", "gru", or 'rnn' (any casing)
+        hidden_size: size for the underlying recurrent unit
+        dropout_keep_rate: output-vector dropout prob
+        recurrent_dropout_keep_rate:  state-vector dropout prob
+
+    Returns:
+        RNNCell of the desired type.
+    """
+    cell_type = cell_type.lower()
+    if cell_type == 'lstm':
+        cell = tf.nn.rnn_cell.LSTMCell(hidden_size)
+    elif cell_type == 'gru':
+        cell = tf.nn.rnn_cell.GRUCell(hidden_size)
+    elif cell_type == 'rnn':
+        cell = tf.nn.rnn_cell.BasicRNNCell(hidden_size)
+    else:
+        raise ValueError("Unknown RNN cell type '%s'!" % cell_type)
+
+    return tf.contrib.rnn.DropoutWrapper(cell,
+                                         output_keep_prob=dropout_keep_rate,
+                                         state_keep_prob=recurrent_dropout_keep_rate)
+
+
+def _make_deep_rnn_cell(num_layers: int,
+                        cell_type: str,
+                        hidden_size: int,
+                        dropout_keep_rate: Union[float, tf.Tensor]=1.0,
+                        recurrent_dropout_keep_rate: Union[float, tf.Tensor]=1.0) \
+        -> tf.nn.rnn_cell.RNNCell:
+    """
+    Args:
+        num_layers: number of layers in result
+        cell_type: "lstm" or "gru" (any casing)
+        hidden_size: size for the underlying recurrent unit
+        dropout_keep_rate: output-vector dropout prob
+        recurrent_dropout_keep_rate: state-vector dropout prob
+
+    Returns:
+        (Multi)RNNCell of the desired type.
+    """
+    if num_layers == 1:
+        return __make_rnn_cell(cell_type, hidden_size, dropout_keep_rate, recurrent_dropout_keep_rate)
+    else:
+        cells = [__make_rnn_cell(cell_type, hidden_size, dropout_keep_rate, recurrent_dropout_keep_rate)
+                 for _ in range(num_layers)]
+        return tf.nn.rnn_cell.MultiRNNCell(cells)
 
 
 class AlonEncoder(Encoder):
     @classmethod
     def get_default_hyperparameters(cls) -> Dict[str, Any]:
-        encoder_hypers = {'rnn_hidden_dim': 64,
+        encoder_hypers = {'rnn_num_layers': 2,
+                          'rnn_hidden_dim': 64,
+                          'rnn_cell_type': 'LSTM',  # One of [LSTM, GRU, RNN]
+                          'rnn_is_bidirectional': True,
                           'rnn_dropout_keep_rate': 0.8,  # 0.5
+                          'rnn_recurrent_dropout_keep_rate': 1.0,
+                          'rnn_pool_mode': 'weighted_mean',
                           'alon_pool_mode': 'alon_final',  # weighted_mean
                           }
         hypers = super().get_default_hyperparameters()
@@ -31,56 +93,78 @@ class AlonEncoder(Encoder):
     @classmethod
     def init_metadata(cls) -> Dict[str, Any]:
         raw_metadata = super().init_metadata()
-        raw_metadata['ast_contexts'] = list()
-        raw_metadata['context_filenames'] = list()
-        raw_metadata['terminal_counter'] = Counter()
-        raw_metadata['nonterminal_counter'] = Counter()
+        # JGD ****** leaf_nodes start ******
+        raw_metadata['identifier'] = list()
+        raw_metadata['identifier_counter'] = Counter()
+        # JGD ****** leaf_nodes end ******
+        # JGD ****** tree_paths start ******
+        # raw_metadata['ast_contexts'] = list()
+        # raw_metadata['context_filenames'] = list()
+        # raw_metadata['terminal_counter'] = Counter()
+        # raw_metadata['nonterminal_counter'] = Counter()
+        # JGD ****** tree_paths end ******
         return raw_metadata
 
     @classmethod
     def load_metadata_from_sample(cls, language: str, data_to_brew: Iterable[str], data_to_load: Iterable[str],
                                   raw_metadata: Dict[str, Any], use_subtokens: bool=False, mark_subtoken_end: bool=False) -> None:
+        # JGD ****** leaf_nodes start ******
+        # JGD extract identifiers
+        identifiers = code2identifiers(data_to_brew, language)
+        raw_metadata['identifier'] = identifiers
+        raw_metadata['identifier_counter'].update(identifiers)
+        # JGD ****** leaf_nodes end ******
+        # JGD ****** tree_paths start ******
         # JGD load preprocessed data
-        path = get_path(language)
-        print('$A1C1', end='\r')
-        context_filename, terminal_counter, nonterminal_counter = load_data(path)
-        print('$A1C2', end='\r')
-        raw_metadata['context_filenames'].extend(context_filename)
-        print('$A1C3', end='\r')
-        raw_metadata['terminal_counter'] += terminal_counter
-        print('$A1C4', end='\r')
-        raw_metadata['nonterminal_counter'] += nonterminal_counter
-        print('$A1C5', end='\r')
+        # path = get_path(language)
+        # print('$A1C1', end='\r')
+        # context_filename, terminal_counter, nonterminal_counter = load_data(path)
+        # print('$A1C2', end='\r')
+        # raw_metadata['context_filenames'].extend(context_filename)
+        # print('$A1C3', end='\r')
+        # raw_metadata['terminal_counter'] += terminal_counter
+        # print('$A1C4', end='\r')
+        # raw_metadata['nonterminal_counter'] += nonterminal_counter
+        # print('$A1C5', end='\r')
+        # JGD ****** tree_paths end ******
 
     @classmethod
     def finalise_metadata(cls, encoder_label: str, hyperparameters: Dict[str, Any], raw_metadata_list: List[Dict[str, Any]]) -> Dict[str, Any]:
-        # JGD build vocabulary ?
         final_metadata = super().finalise_metadata(encoder_label, hyperparameters, raw_metadata_list)
-        merged_context_filenames = list()
-        merged_terminal_counter = Counter()
-        merged_nonterminal_counter = Counter()
+        # JGD ****** leaf_nodes start ******
+        merged_identifier_counter = Counter()
         for raw_metadata in raw_metadata_list:
-            merged_context_filenames.extend(raw_metadata['context_filenames'])
-            merged_terminal_counter += raw_metadata['terminal_counter']
-            merged_nonterminal_counter += raw_metadata['nonterminal_counter']
+            merged_identifier_counter += raw_metadata['identifier_counter']
 
-        final_metadata['context_filenames'] = merged_context_filenames
-        final_metadata['terminal_counter'] = merged_terminal_counter
-        final_metadata['nonterminal_counter'] = merged_nonterminal_counter
+        if hyperparameters['%s_use_bpe' % encoder_label]:
+            identifier_vocabulary = BpeVocabulary(vocab_size=hyperparameters['%s_token_vocab_size' % encoder_label],
+                                             pct_bpe=hyperparameters['%s_pct_bpe' % encoder_label]
+                                             )
+            identifier_vocabulary.fit(merged_identifier_counter)
+        else:
+            identifier_vocabulary = Vocabulary.create_vocabulary(tokens=merged_identifier_counter,
+                                                            max_size=hyperparameters[
+                                                                '%s_token_vocab_size' % encoder_label],
+                                                            count_threshold=hyperparameters[
+                                                                '%s_token_vocab_count_threshold' % encoder_label])
 
-        # if hyperparameters['%s_use_bpe' % encoder_label]:
-        #     token_vocabulary = BpeVocabulary(vocab_size=hyperparameters['%s_token_vocab_size' % encoder_label],
-        #                                      pct_bpe=hyperparameters['%s_pct_bpe' % encoder_label]
-        #                                      )
-        #     token_vocabulary.fit(merged_token_counter)
-        # else:
-        #     token_vocabulary = Vocabulary.create_vocabulary(tokens=merged_token_counter,
-        #                                                     max_size=hyperparameters['%s_token_vocab_size' % encoder_label],
-        #                                                     count_threshold=hyperparameters['%s_token_vocab_count_threshold' % encoder_label])
+        final_metadata['identifier_vocab'] = identifier_vocabulary
+        # Save the most common tokens for use in data augmentation:
+        final_metadata['common_identifiers'] = merged_identifier_counter.most_common(50)
+        # JGD ****** leaf_nodes end ******
+        # JGD ****** tree_paths start ******
+        # merged_context_filenames = list()
+        # merged_terminal_counter = Counter()
+        # merged_nonterminal_counter = Counter()
+        # for raw_metadata in raw_metadata_list:
+        #     merged_context_filenames.extend(raw_metadata['context_filenames'])
+        #     merged_terminal_counter += raw_metadata['terminal_counter']
+        #     merged_nonterminal_counter += raw_metadata['nonterminal_counter']
         #
-        # final_metadata['token_vocab'] = token_vocabulary
-        # # Save the most common tokens for use in data augmentation:
-        # final_metadata['common_tokens'] = merged_token_counter.most_common(50)
+        # final_metadata['context_filenames'] = merged_context_filenames
+        # final_metadata['terminal_counter'] = merged_terminal_counter
+        # final_metadata['nonterminal_counter'] = merged_nonterminal_counter
+        # JGD ****** tree_paths end ******
         return final_metadata
 
     def __init__(self, label: str, hyperparameters: Dict[str, Any], metadata: Dict[str, Any]):
@@ -102,16 +186,23 @@ class AlonEncoder(Encoder):
         function-name as the query, and replacing the function name in the code with an out-of-vocab token.
         Sub-tokenizes, converts, and pads both versions, and rejects empty samples.
         """
-        # JGD extract AST-paths
-        ast_paths = code2paths(data_to_brew, language)  # JGD check ...
-        terminals, nonterminals = paths2tokens(ast_paths)
-        # count the tokens
-        terminal_counter = Counter(terminals)
-        nonterminal_counter = Counter(nonterminals)
-        # JGD todo check
-        result_holder['ast_contexts'] = ast_paths
-        result_holder['terminal_counter'] = terminal_counter
-        result_holder['nonterminal_counter'] = nonterminal_counter
+        # JGD ****** leaf_nodes start ******
+        # JGD extract identifiers
+        identifiers = code2identifiers(data_to_brew, language)
+        result_holder['identifier'] = identifiers
+        # JGD ****** leaf_nodes end ******
+        # JGD *** tree_paths start ******
+        # # JGD extract AST-paths
+        # ast_paths = code2paths(data_to_brew, language)
+        # terminals, nonterminals = paths2tokens(ast_paths)
+        # # count the tokens
+        # terminal_counter = Counter(terminals)
+        # nonterminal_counter = Counter(nonterminals)
+        # # JGD todo check
+        # result_holder['ast_contexts'] = ast_paths
+        # result_holder['terminal_counter'] = terminal_counter
+        # result_holder['nonterminal_counter'] = nonterminal_counter
+        # JGD ****** tree_paths end ******
 
         # # Save the two versions of the code and query:
         # data_holder = {QueryType.DOCSTRING.value: data_to_load, QueryType.FUNCTION_NAME.value: None}
@@ -230,23 +321,120 @@ class AlonEncoder(Encoder):
     def output_representation_size(self):
         return 2 * self.get_hyper('rnn_hidden_dim')
 
+    def _encode_with_rnn(self,
+                         inputs: tf.Tensor,
+                         input_lengths: tf.Tensor) \
+            -> Tuple[tf.Tensor, tf.Tensor]:
+        cell_type = self.get_hyper('rnn_cell_type').lower()
+        rnn_cell_fwd = _make_deep_rnn_cell(num_layers=self.get_hyper('rnn_num_layers'),
+                                           cell_type=cell_type,
+                                           hidden_size=self.get_hyper('rnn_hidden_dim'),
+                                           dropout_keep_rate=self.placeholders['rnn_dropout_keep_rate'],
+                                           recurrent_dropout_keep_rate=self.placeholders['rnn_recurrent_dropout_keep_rate'],
+                                           )
+        if not self.get_hyper('rnn_is_bidirectional'):
+            (outputs, final_states) = tf.nn.dynamic_rnn(cell=rnn_cell_fwd,
+                                                        inputs=inputs,
+                                                        sequence_length=input_lengths,
+                                                        dtype=tf.float32,
+                                                        )
+
+            if cell_type == 'lstm':
+                final_state = tf.concat([tf.concat(layer_final_state, axis=-1)  # concat c & m of LSTM cell
+                                         for layer_final_state in final_states],
+                                        axis=-1)  # concat across layers
+            elif cell_type == 'gru' or cell_type == 'rnn':
+                final_state = tf.concat(final_states, axis=-1)
+            else:
+                raise ValueError("Unknown RNN cell type '%s'!" % cell_type)
+        else:
+            rnn_cell_bwd = _make_deep_rnn_cell(num_layers=self.get_hyper('rnn_num_layers'),
+                                               cell_type=cell_type,
+                                               hidden_size=self.get_hyper('rnn_hidden_dim'),
+                                               dropout_keep_rate=self.placeholders['rnn_dropout_keep_rate'],
+                                               recurrent_dropout_keep_rate=self.placeholders['rnn_recurrent_dropout_keep_rate'],
+                                               )
+
+            (outputs, final_states) = tf.nn.bidirectional_dynamic_rnn(cell_fw=rnn_cell_fwd,
+                                                                      cell_bw=rnn_cell_bwd,
+                                                                      inputs=inputs,
+                                                                      sequence_length=input_lengths,
+                                                                      dtype=tf.float32,
+                                                                      )
+            # Merge fwd/bwd outputs:
+            if cell_type == 'lstm':
+                final_state = tf.concat([tf.concat([tf.concat(layer_final_state, axis=-1)  # concat c & m of LSTM cell
+                                                    for layer_final_state in layer_final_states],
+                                                   axis=-1)  # concat across layers
+                                        for layer_final_states in final_states],
+                                        axis=-1)  # concat fwd & bwd
+            elif cell_type == 'gru' or cell_type == 'rnn':
+                final_state = tf.concat([tf.concat(layer_final_states, axis=-1)  # concat across layers
+                                         for layer_final_states in final_states],
+                                        axis=-1)  # concat fwd & bwd
+            else:
+                raise ValueError("Unknown RNN cell type '%s'!" % cell_type)
+            outputs = tf.concat(outputs, axis=-1)  # concat fwd & bwd
+
+        return final_state, outputs
+
     def make_model(self, is_train: bool = False) -> tf.Tensor:
+        # JGD ****** leaf_nodes start ******
         with tf.variable_scope("alon_encoder"):
             self._make_placeholders()
 
-            context_filenames = self.metadata['context_filenames']
-            terminal_counter = self.metadata['terminal_counter']
-            nonterminal_counter = self.metadata['nonterminal_counter']
-            print('$T1******', end='\r')
-            model = AlonModel(context_filenames, terminal_counter, nonterminal_counter)
-            print('$T2******', end='\r')
             self.placeholders['tokens_lengths'] = \
-                tf.placeholder(tf.int32, shape=[None], name='tokens_lengths')
-            print('$T3******', end='\r')
+                tf.placeholder(tf.int32,
+                               shape=[None],
+                               name='tokens_lengths')
+
             self.placeholders['rnn_dropout_keep_rate'] = \
-                tf.placeholder(tf.float32, shape=[], name='rnn_dropout_keep_rate')
-            print('$T4******', end='\r')
-            return model.build_computation_graph(is_train)
+                tf.placeholder(tf.float32,
+                               shape=[],
+                               name='rnn_dropout_keep_rate')
+
+            self.placeholders['rnn_recurrent_dropout_keep_rate'] = \
+                tf.placeholder(tf.float32,
+                               shape=[],
+                               name='rnn_recurrent_dropout_keep_rate')
+
+            seq_tokens = self.placeholders['tokens']
+            seq_tokens_embeddings = self.embedding_layer(seq_tokens)
+            seq_tokens_lengths = self.placeholders['tokens_lengths']
+
+            rnn_final_state, token_embeddings = self._encode_with_rnn(seq_tokens_embeddings, seq_tokens_lengths)
+
+            output_pool_mode = self.get_hyper('rnn_pool_mode').lower()
+            if output_pool_mode == 'rnn_final':
+                return rnn_final_state
+            else:
+                token_mask = tf.expand_dims(tf.range(tf.shape(seq_tokens)[1]), axis=0)            # 1 x T
+                token_mask = tf.tile(token_mask, multiples=(tf.shape(seq_tokens_lengths)[0], 1))  # B x T
+                token_mask = tf.cast(token_mask < tf.expand_dims(seq_tokens_lengths, axis=-1),
+                                     dtype=tf.float32)                                            # B x T
+                return pool_sequence_embedding(output_pool_mode,
+                                               sequence_token_embeddings=token_embeddings,
+                                               sequence_lengths=seq_tokens_lengths,
+                                               sequence_token_masks=token_mask)
+        # JGD ****** leaf_nodes end ******
+        # JGD ****** tree_paths start ******
+        # with tf.variable_scope("alon_encoder"):
+        #     self._make_placeholders()
+        #
+        #     context_filenames = self.metadata['context_filenames']
+        #     terminal_counter = self.metadata['terminal_counter']
+        #     nonterminal_counter = self.metadata['nonterminal_counter']
+        #     print('$T1******', end='\r')
+        #     model = AlonModel(context_filenames, terminal_counter, nonterminal_counter)
+        #     print('$T2******', end='\r')
+        #     self.placeholders['tokens_lengths'] = \
+        #         tf.placeholder(tf.int32, shape=[None], name='tokens_lengths')
+        #     print('$T3******', end='\r')
+        #     self.placeholders['rnn_dropout_keep_rate'] = \
+        #         tf.placeholder(tf.float32, shape=[], name='rnn_dropout_keep_rate')
+        #     print('$T4******', end='\r')
+        #     return model.build_computation_graph(is_train)
+        # JGD ****** tree_paths end ******
 
     def init_minibatch(self, batch_data: Dict[str, Any]) -> None:
         super().init_minibatch(batch_data)
@@ -258,6 +446,10 @@ class AlonEncoder(Encoder):
         super().minibatch_to_feed_dict(batch_data, feed_dict, is_train)
         feed_dict[self.placeholders['rnn_dropout_keep_rate']] = \
             self.get_hyper('rnn_dropout_keep_rate') if is_train else 1.0
+        feed_dict[self.placeholders['rnn_recurrent_dropout_keep_rate']] = \
+            self.get_hyper('rnn_recurrent_dropout_keep_rate') if is_train else 1.0
+        # feed_dict[self.placeholders['rnn_dropout_keep_rate']] = \
+        #     self.get_hyper('rnn_dropout_keep_rate') if is_train else 1.0
 
         # write_to_feed_dict(feed_dict, self.placeholders['tokens'], batch_data['tokens'])
         # write_to_feed_dict(feed_dict, self.placeholders['tokens_lengths'], batch_data['tokens_lengths'])

@@ -105,6 +105,16 @@ class TS:
                 terminals.append(lhs)
         return root, terminals
 
+    def gen_identifiers(self):
+        # it is to generate the sequence of leaf nodes
+        # it performs better than the set of identifiers
+        identifiers = list()
+        for terminal in self.terminals:
+            if terminal.type == 'identifier':
+                identifier = terminal.value
+                identifiers.append(identifier)
+        return identifiers
+
     def gen_root_paths(self):
         root_paths = list()
 
@@ -214,6 +224,13 @@ class TS:
         suffix = v_path[s:]
 
         return prefix, lca, suffix
+
+
+# using TreeSitter, for all 6 languages
+def code2identifiers(code, language='python'):
+    ts = TS(code, language)
+    identifiers = ts.gen_identifiers()
+    return identifiers
 
 
 # using TreeSitter, for all 6 languages

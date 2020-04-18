@@ -116,7 +116,9 @@ if __name__ == '__main__':
     for language in ('python', 'go', 'javascript', 'java', 'php', 'ruby'):
         print("Evaluating language: %s" % language)
         definitions = pickle.load(open('../resources/data/{}_dedupe_definitions_v2.pkl'.format(language), 'rb'))
-        indexes = [{'code_tokens': d['function_tokens'], 'language': d['language']} for d in tqdm(definitions)]
+        # dict_keys(['nwo', 'sha', 'path', 'language', 'identifier', 'parameters', 'argument_list', 'return_statement',
+        # 'docstring', 'docstring_summary', 'docstring_tokens', 'function', 'function_tokens', 'url', 'score'])
+        indexes = [{'code': d['function'], 'code_tokens': d['function_tokens'], 'language': d['language']} for d in tqdm(definitions)]
         code_representations = model.get_code_representations(indexes)
 
         indices = AnnoyIndex(code_representations[0].shape[0], 'angular')
@@ -128,6 +130,8 @@ if __name__ == '__main__':
         for query in queries:
             for idx, _ in zip(*query_model(query, model, indices, language)):
                 predictions.append((query, language, definitions[idx]['identifier'], definitions[idx]['url']))
+        # JGD only predict over Python
+        break
 
     df = pd.DataFrame(predictions, columns=['query', 'language', 'identifier', 'url'])
     df.to_csv(predictions_csv, index=False)

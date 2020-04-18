@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional, Type
 import tensorflow as tf
 from dpu_utils.utils import RichPath
 
-from models import Model, AlonModel, NeuralBoWModel, RNNModel, SelfAttentionModel, ConvolutionalModel, ConvSelfAttentionModel
+from models import Model, TreeModel, NeuralBoWModel, RNNModel, SelfAttentionModel, ConvolutionalModel, ConvSelfAttentionModel
 
 
 def get_model_class_from_name(model_name: str) -> Type[Model]:
@@ -18,8 +18,8 @@ def get_model_class_from_name(model_name: str) -> Type[Model]:
         return ConvolutionalModel
     elif model_name in {'convselfatt', 'convselfattentionmodel'}:
         return ConvSelfAttentionModel
-    elif model_name in {'alon', 'alonmodel'}:
-        return AlonModel
+    elif model_name in {'tree', 'treemodel'}:
+        return TreeModel
     else:
         raise Exception("Unknown model '%s'!" % model_name)
 

@@ -68,8 +68,8 @@ def run_train(model_class: Type[Model],
         resume = True
     else:
         model.train_log("Tokenizing and building vocabulary for code snippets and queries.  This step may take several hours.")
-        if model.__class__.__name__ == 'AlonModel':
-            model._load_in_once = True
+        if model.__class__.__name__ == 'TreeModel':
+            model._load_data = True
         print('$A', end='\r')
         model.load_metadata(train_data_dirs, max_files_per_dir=max_files_per_dir, parallelize=parallelize)
         print('$B', end='\r')
