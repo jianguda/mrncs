@@ -11,13 +11,13 @@ import tensorflow as tf
 from dpu_utils.codeutils import split_identifier_into_parts
 from dpu_utils.mlutils import Vocabulary
 
-from .encoder import Encoder, QueryType
+from encoders.encoder import Encoder, QueryType
 from scripts.ts import code2paths, code2identifiers
 from scripts.run import get_path, load_data, paths2tokens
 
 
 # TmpEncoder = MaskSeqEncoder + SeqEncoder + some changes
-class TmpEncoder(Encoder):
+class LeafEncoder(Encoder):
     @classmethod
     def get_default_hyperparameters(cls) -> Dict[str, Any]:
         encoder_hypers = { 'token_vocab_size': 10000,
@@ -104,8 +104,12 @@ class TmpEncoder(Encoder):
         # if use_subtokens:
         #     data_to_load = cls._to_subtoken_stream(data_to_load, mark_subtoken_end=mark_subtoken_end)
         # raw_metadata['token_counter'].update(data_to_load)
-        identifiers = code2identifiers(data_to_brew, language)
-        raw_metadata['token_counter'].update(identifiers)
+        # for leaf data
+        leaf_data = code2identifiers(data_to_brew, language)
+        raw_metadata['token_counter'].update(leaf_data)
+        # for path data
+        # path_data = code2paths(data_to_brew, language)
+        # raw_metadata['token_counter'].update(path_data)
 
     @classmethod
     def finalise_metadata(cls, encoder_label: str, hyperparameters: Dict[str, Any], raw_metadata_list: List[Dict[str, Any]]) -> Dict[str, Any]:

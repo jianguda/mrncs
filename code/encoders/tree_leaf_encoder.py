@@ -2,7 +2,8 @@ from typing import Dict, Any, Union, Tuple
 
 import tensorflow as tf
 
-from .tmp_encoder import TmpEncoder
+from encoders.tree.leaf_encoder import LeafEncoder
+from encoders.tree.path_encoder import PathEncoder
 from .utils.bert_self_attention import BertConfig, BertModel
 from utils.tfutils import get_activation, write_to_feed_dict, pool_sequence_embedding
 
@@ -62,7 +63,7 @@ def _make_deep_rnn_cell(num_layers: int,
         return tf.nn.rnn_cell.MultiRNNCell(cells)
 
 
-class TreeEncoder(TmpEncoder):
+class TreeLeafEncoder(LeafEncoder):
     @classmethod
     def get_default_hyperparameters(cls) -> Dict[str, Any]:
         encoder_hypers = {'nbow_pool_mode': 'weighted_mean',
@@ -174,8 +175,34 @@ class TreeEncoder(TmpEncoder):
             raise ValueError("Unknown position encoding '%s'!" % position_encoding)
 
     def make_model(self, is_train: bool=False) -> tf.Tensor:
-        model = 'nbow'  # nbow, cnn, rnn, bert, tree
+        option = 'leaf1'
+        if option == 'leaf1':
+            # baseline models for leaf tokens
+            return self._model4leaf1(is_train)
+        elif option == 'leaf2':
+            # (nbow + rnn) for leaf tokens
+            return self._model4leaf2(is_train)
+        return self._model4leaf1(is_train)
+
+    def init_minibatch(self, batch_data: Dict[str, Any]) -> None:
+        super().init_minibatch(batch_data)
+        # batch_data['tokens'] = []
+        batch_data['tokens_lengths'] = []
+
+    def minibatch_to_feed_dict(self, batch_data: Dict[str, Any], feed_dict: Dict[tf.Tensor, Any], is_train: bool) -> None:
+        super().minibatch_to_feed_dict(batch_data, feed_dict, is_train)
+        feed_dict[self.placeholders['rnn_dropout_keep_rate']] = \
+            self.get_hyper('rnn_dropout_keep_rate') if is_train else 1.0
+        feed_dict[self.placeholders['rnn_recurrent_dropout_keep_rate']] = \
+            self.get_hyper('rnn_recurrent_dropout_keep_rate') if is_train else 1.0
+
+        # write_to_feed_dict(feed_dict, self.placeholders['tokens'], batch_data['tokens'])
+        write_to_feed_dict(feed_dict, self.placeholders['tokens_lengths'], batch_data['tokens_lengths'])
+
+    def _model4leaf1(self, is_train: bool=False) -> tf.Tensor:
+        model = 'nbow'  # nbow, cnn, rnn, bert
         attention = False
+        embedding = None
         with tf.variable_scope("tree_encoder"):
             self._make_placeholders()
 
@@ -192,12 +219,12 @@ class TreeEncoder(TmpEncoder):
                 seq_token_lengths = tf.reduce_sum(seq_token_mask, axis=1)  # B
 
                 if attention:
-                    input4att = seq_tokens_embeddings
+                    embedding = seq_tokens_embeddings
                 else:
-                    return pool_sequence_embedding(self.get_hyper('nbow_pool_mode').lower(),
-                                                   sequence_token_embeddings=seq_tokens_embeddings,
-                                                   sequence_lengths=seq_token_lengths,
-                                                   sequence_token_masks=seq_token_mask)
+                    embedding = pool_sequence_embedding(self.get_hyper('nbow_pool_mode').lower(),
+                                                        sequence_token_embeddings=seq_tokens_embeddings,
+                                                        sequence_lengths=seq_token_lengths,
+                                                        sequence_token_masks=seq_token_mask)
             elif model == 'cnn':
                 seq_tokens_embeddings = self.embedding_layer(self.placeholders['tokens'])
                 seq_tokens_embeddings = self.__add_position_encoding(seq_tokens_embeddings)
@@ -221,14 +248,14 @@ class TreeEncoder(TmpEncoder):
                                                        keep_prob=self.placeholders['dropout_keep_rate'])
 
                 if attention:
-                    input4att = current_embeddings
+                    embedding = current_embeddings
                 else:
                     seq_token_mask = self.placeholders['tokens_mask']
                     seq_token_lengths = tf.reduce_sum(seq_token_mask, axis=1)  # B
-                    return pool_sequence_embedding(self.get_hyper('1dcnn_pool_mode').lower(),
-                                                   sequence_token_embeddings=current_embeddings,
-                                                   sequence_lengths=seq_token_lengths,
-                                                   sequence_token_masks=seq_token_mask)
+                    embedding = pool_sequence_embedding(self.get_hyper('1dcnn_pool_mode').lower(),
+                                                        sequence_token_embeddings=current_embeddings,
+                                                        sequence_lengths=seq_token_lengths,
+                                                        sequence_token_masks=seq_token_mask)
             elif model == 'rnn':
                 seq_tokens = self.placeholders['tokens']
                 seq_tokens_embeddings = self.embedding_layer(seq_tokens)
@@ -236,20 +263,20 @@ class TreeEncoder(TmpEncoder):
                 rnn_final_state, token_embeddings = self._encode_with_rnn(seq_tokens_embeddings, seq_tokens_lengths)
 
                 if attention:
-                    input4att = token_embeddings
+                    embedding = token_embeddings
                 else:
                     output_pool_mode = self.get_hyper('rnn_pool_mode').lower()
                     if output_pool_mode == 'rnn_final':
-                        return rnn_final_state
+                        embedding = rnn_final_state
                     else:
                         token_mask = tf.expand_dims(tf.range(tf.shape(seq_tokens)[1]), axis=0)            # 1 x T
                         token_mask = tf.tile(token_mask, multiples=(tf.shape(seq_tokens_lengths)[0], 1))  # B x T
                         token_mask = tf.cast(token_mask < tf.expand_dims(seq_tokens_lengths, axis=-1),
                                              dtype=tf.float32)                                            # B x T
-                        return pool_sequence_embedding(output_pool_mode,
-                                                       sequence_token_embeddings=token_embeddings,
-                                                       sequence_lengths=seq_tokens_lengths,
-                                                       sequence_token_masks=token_mask)
+                        embedding = pool_sequence_embedding(output_pool_mode,
+                                                            sequence_token_embeddings=token_embeddings,
+                                                            sequence_lengths=seq_tokens_lengths,
+                                                            sequence_token_masks=token_mask)
             elif model == 'bert':
                 config = BertConfig(vocab_size=self.get_hyper('token_vocab_size'),
                                     hidden_size=self.get_hyper('self_attention_hidden_size'),
@@ -264,60 +291,185 @@ class TreeEncoder(TmpEncoder):
                                   use_one_hot_embeddings=False)
 
                 if attention:
-                    input4att = model.get_sequence_output()
+                    embedding = model.get_sequence_output()
                 else:
                     output_pool_mode = self.get_hyper('self_attention_pool_mode').lower()
                     if output_pool_mode == 'bert':
-                        return model.get_pooled_output()
+                        embedding = model.get_pooled_output()
                     else:
                         seq_token_embeddings = model.get_sequence_output()
                         seq_token_masks = self.placeholders['tokens_mask']
                         seq_token_lengths = tf.reduce_sum(seq_token_masks, axis=1)  # B
-                        return pool_sequence_embedding(output_pool_mode,
-                                                       sequence_token_embeddings=seq_token_embeddings,
-                                                       sequence_lengths=seq_token_lengths,
-                                                       sequence_token_masks=seq_token_masks)
-            elif model == 'tree':
-                pass
+                        embedding = pool_sequence_embedding(output_pool_mode,
+                                                            sequence_token_embeddings=seq_token_embeddings,
+                                                            sequence_lengths=seq_token_lengths,
+                                                            sequence_token_masks=seq_token_masks)
             else:
                 raise ValueError('Undefined Config')
 
-            # JGD with attention
-            # (B,T,D)
-            # [batch_size, seq_length, hidden_size]
-            hidden_size = input4att.shape[2].value  # D value - hidden size of the RNN layer
-            attention_size = 128
-            initializer = tf.random_normal_initializer(stddev=0.1)
+            if attention:
+                # (B,T,D)
+                # [batch_size, seq_length, hidden_size]
+                hidden_size = embedding.shape[2].value  # D value - hidden size of the RNN layer
+                attention_size = 128
+                initializer = tf.random_normal_initializer(stddev=0.1)
 
-            # Trainable parameters
-            w_omega = tf.get_variable(name="w_omega", shape=[hidden_size, attention_size], initializer=initializer)
-            b_omega = tf.get_variable(name="b_omega", shape=[attention_size], initializer=initializer)
-            u_omega = tf.get_variable(name="u_omega", shape=[attention_size], initializer=initializer)
+                # Trainable parameters
+                w_omega = tf.get_variable(name="w_omega", shape=[hidden_size, attention_size], initializer=initializer)
+                b_omega = tf.get_variable(name="b_omega", shape=[attention_size], initializer=initializer)
+                u_omega = tf.get_variable(name="u_omega", shape=[attention_size], initializer=initializer)
 
-            with tf.name_scope('att'):
-                # Applying fully connected layer with non-linear activation to each of the B*T timestamps;
-                #  the shape of `v` is (B,T,D)*(D,A)=(B,T,A), where A=attention_size
-                v = tf.tanh(tf.tensordot(input4att, w_omega, axes=1) + b_omega)
+                with tf.name_scope('att'):
+                    # Applying fully connected layer with non-linear activation to each of the B*T timestamps;
+                    #  the shape of `v` is (B,T,D)*(D,A)=(B,T,A), where A=attention_size
+                    v = tf.tanh(tf.tensordot(embedding, w_omega, axes=1) + b_omega)
 
-            # For each of the timestamps its vector of size A from `v` is reduced with `u` vector
-            vu = tf.tensordot(v, u_omega, axes=1, name='vu')  # (B,T) shape
-            alphas = tf.nn.softmax(vu, name='alphas')  # (B,T) shape
+                # For each of the timestamps its vector of size A from `v` is reduced with `u` vector
+                vu = tf.tensordot(v, u_omega, axes=1, name='vu')  # (B,T) shape
+                alphas = tf.nn.softmax(vu, name='alphas')  # (B,T) shape
 
-            # Output of (Bi-)RNN is reduced with attention vector; the result has (B,D) shape
-            output = tf.reduce_sum(input4att * tf.expand_dims(alphas, -1), 1)
-            return output
+                # Output of (Bi-)RNN is reduced with attention vector; the result has (B,D) shape
+                output = tf.reduce_sum(embedding * tf.expand_dims(alphas, -1), 1)
+                return output
+            else:
+                return embedding
 
-    def init_minibatch(self, batch_data: Dict[str, Any]) -> None:
-        super().init_minibatch(batch_data)
-        # batch_data['tokens'] = []
-        batch_data['tokens_lengths'] = []
+    def _model4leaf2(self, is_train: bool=False) -> tf.Tensor:
+        models = ['nbow', 'rnn']  # nbow, cnn, rnn, bert
+        attention = True
+        embeddings = list()
+        with tf.variable_scope("tree_encoder"):
+            self._make_placeholders()
 
-    def minibatch_to_feed_dict(self, batch_data: Dict[str, Any], feed_dict: Dict[tf.Tensor, Any], is_train: bool) -> None:
-        super().minibatch_to_feed_dict(batch_data, feed_dict, is_train)
-        feed_dict[self.placeholders['rnn_dropout_keep_rate']] = \
-            self.get_hyper('rnn_dropout_keep_rate') if is_train else 1.0
-        feed_dict[self.placeholders['rnn_recurrent_dropout_keep_rate']] = \
-            self.get_hyper('rnn_recurrent_dropout_keep_rate') if is_train else 1.0
+            self.placeholders['tokens_lengths'] = \
+                tf.placeholder(tf.int32, shape=[None], name='tokens_lengths')
+            self.placeholders['rnn_dropout_keep_rate'] = \
+                tf.placeholder(tf.float32, shape=[], name='rnn_dropout_keep_rate')
+            self.placeholders['rnn_recurrent_dropout_keep_rate'] = \
+                tf.placeholder(tf.float32, shape=[], name='rnn_recurrent_dropout_keep_rate')
 
-        # write_to_feed_dict(feed_dict, self.placeholders['tokens'], batch_data['tokens'])
-        write_to_feed_dict(feed_dict, self.placeholders['tokens_lengths'], batch_data['tokens_lengths'])
+            common_flag = True
+            if 'nbow' in models and 'rnn' in models:
+                seq_tokens = self.placeholders['tokens']
+                seq_tokens_embeddings = self.embedding_layer(seq_tokens)
+                common_flag = False
+            if 'nbow' in models:
+                if common_flag:
+                    seq_tokens_embeddings = self.embedding_layer(self.placeholders['tokens'])
+                seq_token_mask = self.placeholders['tokens_mask']
+                seq_token_lengths = tf.reduce_sum(seq_token_mask, axis=1)  # B
+
+                embedding = pool_sequence_embedding(self.get_hyper('nbow_pool_mode').lower(),
+                                                    sequence_token_embeddings=seq_tokens_embeddings,
+                                                    sequence_lengths=seq_token_lengths,
+                                                    sequence_token_masks=seq_token_mask)
+                embeddings.append(embedding)
+            if 'cnn' in models:
+                if common_flag:
+                    seq_tokens_embeddings = self.embedding_layer(self.placeholders['tokens'])
+                seq_tokens_embeddings = self.__add_position_encoding(seq_tokens_embeddings)
+
+                activation_fun = get_activation(self.get_hyper('1dcnn_activation'))
+                current_embeddings = seq_tokens_embeddings
+                num_filters_and_width = zip(self.get_hyper('1dcnn_layer_list'), self.get_hyper('1dcnn_kernel_width'))
+                for (layer_idx, (num_filters, kernel_width)) in enumerate(num_filters_and_width):
+                    next_embeddings = tf.layers.conv1d(
+                        inputs=current_embeddings,
+                        filters=num_filters,
+                        kernel_size=kernel_width,
+                        padding="same")
+
+                    # Add residual connections past the first layer.
+                    if self.get_hyper('1dcnn_add_residual_connections') and layer_idx > 0:
+                        next_embeddings += current_embeddings
+
+                    current_embeddings = activation_fun(next_embeddings)
+                    current_embeddings = tf.nn.dropout(current_embeddings,
+                                                       keep_prob=self.placeholders['dropout_keep_rate'])
+
+                seq_token_mask = self.placeholders['tokens_mask']
+                seq_token_lengths = tf.reduce_sum(seq_token_mask, axis=1)  # B
+                embedding = pool_sequence_embedding(self.get_hyper('1dcnn_pool_mode').lower(),
+                                                    sequence_token_embeddings=current_embeddings,
+                                                    sequence_lengths=seq_token_lengths,
+                                                    sequence_token_masks=seq_token_mask)
+                embeddings.append(embedding)
+            if 'rnn' in models:
+                if common_flag:
+                    seq_tokens = self.placeholders['tokens']
+                    seq_tokens_embeddings = self.embedding_layer(seq_tokens)
+                seq_tokens_lengths = self.placeholders['tokens_lengths']
+                rnn_final_state, token_embeddings = self._encode_with_rnn(seq_tokens_embeddings, seq_tokens_lengths)
+
+                output_pool_mode = self.get_hyper('rnn_pool_mode').lower()
+                if output_pool_mode == 'rnn_final':
+                    embedding = rnn_final_state
+                else:
+                    token_mask = tf.expand_dims(tf.range(tf.shape(seq_tokens)[1]), axis=0)            # 1 x T
+                    token_mask = tf.tile(token_mask, multiples=(tf.shape(seq_tokens_lengths)[0], 1))  # B x T
+                    token_mask = tf.cast(token_mask < tf.expand_dims(seq_tokens_lengths, axis=-1),
+                                         dtype=tf.float32)                                            # B x T
+                    embedding = pool_sequence_embedding(output_pool_mode,
+                                                        sequence_token_embeddings=token_embeddings,
+                                                        sequence_lengths=seq_tokens_lengths,
+                                                        sequence_token_masks=token_mask)
+                embeddings.append(embedding)
+            if 'bert' in models:
+                config = BertConfig(vocab_size=self.get_hyper('token_vocab_size'),
+                                    hidden_size=self.get_hyper('self_attention_hidden_size'),
+                                    num_hidden_layers=self.get_hyper('self_attention_num_layers'),
+                                    num_attention_heads=self.get_hyper('self_attention_num_heads'),
+                                    intermediate_size=self.get_hyper('self_attention_intermediate_size'))
+
+                model = BertModel(config=config,
+                                  is_training=is_train,
+                                  input_ids=self.placeholders['tokens'],
+                                  input_mask=self.placeholders['tokens_mask'],
+                                  use_one_hot_embeddings=False)
+
+                output_pool_mode = self.get_hyper('self_attention_pool_mode').lower()
+                if output_pool_mode == 'bert':
+                    embedding = model.get_pooled_output()
+                else:
+                    seq_token_embeddings = model.get_sequence_output()
+                    seq_token_masks = self.placeholders['tokens_mask']
+                    seq_token_lengths = tf.reduce_sum(seq_token_masks, axis=1)  # B
+                    embedding = pool_sequence_embedding(output_pool_mode,
+                                                        sequence_token_embeddings=seq_token_embeddings,
+                                                        sequence_lengths=seq_token_lengths,
+                                                        sequence_token_masks=seq_token_masks)
+                embeddings.append(embedding)
+
+            embeddings = tf.stack(embeddings, axis=0)
+            if attention:
+                embeddings = self.self_attention_layer(embeddings)
+            # "concat one-hot" is equal to "accumulate embedding"
+            # [v1^T, v2^T, v3^T] * W = [v1^T, v2^T, v3^T]*[w1, w2, w3]^T = v1^T*w1+v2^T*w2+v3^T*w3
+            print('*@' * 16)
+            print(embeddings)
+            print(tf.shape(embeddings))
+            return tf.reduce_sum(embeddings, axis=0)
+            # return tf.reduce_mean(embeddings, axis=0)
+
+    def self_attention_layer(self, inputs, seq_len=128, hidden_dim=64):
+        batch_size = 1
+        input_seq_len = seq_len
+        output_seq_len = seq_len
+        # inputs = tf.random_normal((batch_size, input_seq_len, hidden_dim))
+        Q_layer = tf.layers.dense(inputs, hidden_dim)  # [batch_size, input_seq_len, hidden_dim]
+        K_layer = tf.layers.dense(inputs, hidden_dim)  # [batch_size, input_seq_len, hidden_dim]
+        V_layer = tf.layers.dense(inputs, output_seq_len)  # [batch_size, input_seq_len, output_seq_len]
+        # attention function
+        # [batch_size, input_seq_len, input_seq_len]
+        attention = tf.matmul(Q_layer, K_layer, transpose_b=True)
+        # scale
+        # [batch_size, input_seq_len, output_seq_len]
+        head_size = tf.cast(tf.shape(K_layer)[-1], dtype=tf.float32)
+        attention = tf.divide(attention, tf.sqrt(head_size))
+        # mask
+        # L670@bert_self_attention.py
+        # [batch_size, input_seq_len, input_seq_len]
+        attention = tf.nn.softmax(attention, dim=-1)
+        # [batch_size, input_seq_len, output_seq_len]
+        outputs = tf.matmul(attention, V_layer)
+        return outputs

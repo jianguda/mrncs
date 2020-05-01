@@ -22,18 +22,27 @@ class TSNode:
         hpt_ptr = None
         while ptr.parent:
             ptr = ptr.parent
+            # AST | SPT || HST | HPT
             if tree_style == 'AST':
                 # abstract syntax tree
                 root_path.append(ptr.type)
+            elif tree_style == 'SPT':
+                # simplified parse tree
+                root_path.append(ptr.value)
+            elif tree_style == 'HST':
+                # binary syntax tree
+                # hierarchy syntax tree
+                root_path.append(ptr.type)
+                if not hpt_ptr and ptr.type == 'expression_statement':
+                    hpt_ptr = ptr
+                    root_path = []
             elif tree_style == 'HPT':
+                # binary parse tree
                 # hierarchy parse tree
                 root_path.append(ptr.value)
                 if not hpt_ptr and ptr.type == 'expression_statement':
                     hpt_ptr = ptr
                     root_path = []
-            elif tree_style == 'SPT':
-                # simplified parse tree
-                root_path.append(ptr.value)
         root_path = list(reversed(root_path))
         value = self.value
         if hpt_ptr:
@@ -51,8 +60,8 @@ class TSNode:
 
 
 class TS:
-    def __init__(self, code, language='python', tree_style='HPT', path_style='U2D'):
-        # AST | HPT | SPT
+    def __init__(self, code, language='python', tree_style='AST', path_style='U2D'):
+        # AST | SPT || HST | HPT
         self.tree_style = tree_style
         # L2L | UD | U2D
         self.path_style = path_style
@@ -147,10 +156,11 @@ class TS:
                     middle = '|'.join('U' * prefix_len + 'D' * suffix_len)
                 else:
                     middle = '|U|'.join(prefix) + f'|U|{lca}|D|' + '|D|'.join(suffix)
-                tree_path = f'{source},{middle},{target}'
+                tree_path = middle
+                # tree_path = f'{source},{middle},{target}'
                 tree_paths.append(tree_path)
 
-        tree_paths = random.sample(tree_paths, min(10, len(tree_paths)))
+        tree_paths = random.sample(tree_paths, min(100, len(tree_paths)))
 
         if self.debug:
             print(f'{"@" * 9}tree_paths\n{tree_paths}')

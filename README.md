@@ -33,12 +33,12 @@ CNN is almost always the worst when it is over single languages, but performs no
 
 **NDCG score (train over all language and predict over all languages)**
 
-|   Model   |   Go    |  Java   |   JS    |   PHP   | Python  |  Ruby   |    Avg.     |
-| :-------: | :-----: | :-----: | :-----: | :-----: | :-----: | :-----: | :---------: |
-| NBOW-raw  |    -    |    -    |    -    |    -    |    -    |    -    | 0.167579375 |
-| 1dCNN-raw | 0.05674 | 0.15570 | 0.03733 | 0.13210 | 0.16670 | 0.10920 | 0.109630036 |
-| biRNN-raw | 0.04016 | 0.08116 | 0.01377 | 0.05979 | 0.06464 | 0.03939 | 0.049820371 |
-| BERT-raw  |    -    |    -    |    -    |    -    |    -    |    -    |      -      |
+|   Model   |  Go   | Java  |  JS   |  PHP  | Python | Ruby  | Avg.  |
+| :-------: | :---: | :---: | :---: | :---: | :----: | :---: | :---: |
+| NBOW-raw  | 0.118 | 0.146 | 0.168 | 0.144 | 0.220  | 0.209 | 0.168 |
+| 1dCNN-raw | 0.057 | 0.156 | 0.037 | 0.132 | 0.167  | 0.109 | 0.110 |
+| biRNN-raw | 0.040 | 0.081 | 0.014 | 0.060 | 0.065  | 0.039 | 0.050 |
+| BERT-raw  |   -   |   -   |   -   |   -   |   -    |   -   |   -   |
 
 NDCG: the Normalized Discounted Cumulative Gain (NDCG) score (the higher the better)
 
@@ -70,16 +70,17 @@ Overall, NBOW << CNN ≈ RNN < BERT.
 |  BERT-leaf   |   0.429   |   0.067   |
 | attBERT-leaf |   0.099   |   0.004   |
 
-**based on leaf-token + keyword data, train over Python and predict over Python**
+<!-- |  Tree-leaf   |   0.531   |   0.129   |
+| attTree-leaf |   0.008   |   0.005   | -->
 
-for different types of tree-path data
+**based on tree-path data, train over Python and predict over Python**
 
-|    Model     | MRR | NDCG |
-| :----------: | :-: | :--: |
-|  NBOW-path   |  -  |  -   |
-| attNBOW-path |  -  |  -   |
-|   RNN-path   |  -  |  -   |
-| attRNN-path  |  -  |  -   |
+|    Model     |  MRR  |   NDCG    |
+| :----------: | :---: | :-------: |
+|  NBOW-path   | 0.394 |   0.092   |
+| attNBOW-path | 0.416 |   0.093   |
+|   RNN-path   | 0.615 |   0.140   |
+| attRNN-path  | 0.609 | **0.189** |
 
 **based on tree-path data, train over Python and predict over Python**
 
@@ -132,7 +133,7 @@ The number of functions (code snippets along with documents) used for training/v
 1. prepare the Azure VM (following `archive/setup`)
 2. check CodeSearchNet [QuickStart](https://github.com/github/CodeSearchNet#quickstart)
 3. override the official **code** with mine
-4. run the `alon` model
+4. run the `tree` model
 
 ## changes
 
@@ -140,10 +141,12 @@ compared with the CSN code, my changes are on following code files:
 
 - `code/encoders/__init__.py`
 - `code/encoders/alon_encoder.py`
-- `code/encoders/seq_encoder.py`
-- `code/encoders/tmp_encoder.py`
-- `code/encoders/tree_tmp_encoder.py`
 - `code/encoders/encoder.py`
+- `code/encoders/seq_encoder.py`
+- `code/encoders/tree_all_encoder.py`
+- `code/encoders/tree_leaf_encoder.py`
+- `code/encoders/tree_path_encoder.py`
+- `code/encoders/tree/*`
 - `code/models/__init__.py`
 - `code/models/alon_model.py`
 - `code/models/tree_model.py`

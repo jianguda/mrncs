@@ -1,7 +1,7 @@
 import re
 import itertools
 
-METHOD_NAME, NUM = 'METHODNAME', 'NUM'
+METHOD_NAME, NUM = 'METHOD_NAME', 'NUM'
 
 
 def terminals(ast, node_index):

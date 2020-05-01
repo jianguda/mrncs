@@ -87,7 +87,7 @@ Evaluating language: python
 Uploading predictions to W&B
 NDCG Average: 0.132435162
 
-# NBOW ATTENTION
+# NBOW attention
 
 Epoch 29 (valid) took 3.35s [processed 6874 samples/second]
 Validation: Loss: 4.236795 | MRR: 0.349014
@@ -221,7 +221,7 @@ Evaluating language: python
 Uploading predictions to W&B
 NDCG Average: 0.077165589
 
-# CNN ATTENTION
+# CNN attention
 
 Epoch 31 (valid) took 5.38s [processed 4271 samples/second]
 Validation: Loss: 4.252490 | MRR: 0.305305
@@ -287,6 +287,10 @@ Evaluating language: python
 100%|██████████████████████████████████████████████████████████████████████████████████| 1156085/1156085 [00:05<00:00, 198425.00it/s]1156085it [00:19, 58171.25it/s]
 Uploading predictions to W&B
 NDCG Average: 0.043087838
+
+# RNN
+
+# RNN attention
 
 # BERT
 
@@ -372,7 +376,7 @@ Evaluating language: python
 Uploading predictions to W&B
 NDCG Average: 0.066512942
 
-# BERT ATTENTION
+# BERT attention
 
 Epoch 15 (valid) took 11.71s [processed 1964 samples/second]
 Validation: Loss: 5.749025 | MRR: 0.099795
@@ -438,3 +442,103 @@ Evaluating language: python
 100%|██████████████████████████████████████████████████████████████████████████████████| 1156085/1156085 [00:05<00:00, 198551.88it/s]1156085it [00:19, 57989.68it/s]
 Uploading predictions to W&B
 NDCG Average: 0.004460423
+
+# NBOW+RNN
+
+Epoch 36 (valid) took 2.72s [processed 8468 samples/second]
+Validation: Loss: 4.416185 | MRR: 0.342909
+2020-05-01 21:52:18.113723: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
+2020-05-01 21:52:18.113785: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
+2020-05-01 21:52:18.113799: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988] 0
+2020-05-01 21:52:18.113811: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0: N
+2020-05-01 21:52:18.113897: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 10762 MB memory) -> physical GPU (device: 0, name: Tesla K80, pci bus id: 59e9:00:00.0, compute capability: 3.7)
+Test-All MRR (bs=1,000): 0.531
+FuncNameTest-All MRR (bs=1,000): 0.438
+Validation-All MRR (bs=1,000): 0.492
+Test-python MRR (bs=1,000): 0.531
+FuncNameTest-python MRR (bs=1,000): 0.438
+Validation-python MRR (bs=1,000): 0.492
+NDCG Average: 0.129065019
+
+# NBOW+RNN attention
+
+Epoch 47 (valid) took 11.95s [processed 1925 samples/second]
+Validation: Loss: 4.085803 | MRR: 0.349671
+2020-05-03 00:42:51.140382: I tensorflow/core/common*runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
+2020-05-03 00:42:51.140444: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
+2020-05-03 00:42:51.140458: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988] 0
+2020-05-03 00:42:51.140469: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0: N
+2020-05-03 00:42:51.140554: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 10762 MB memory) -> physical GPU (device: 0, name: Tesla K80, pci bus id: 7bd0:00:00.0, compute capability: 3.7)
+*@_@_@_@_@_@_@_@_@_@_@_@_@_@_@\_@
+Tensor("code_encoder/python/tree_encoder/MatMul_1:0", shape=(2, ?, 128), dtype=float32)
+Tensor("code_encoder/python/tree_encoder/Shape_3:0", shape=(3,), dtype=int32)
+Test-All MRR (bs=1,000): 0.008
+FuncNameTest-All MRR (bs=1,000): 0.008
+Validation-All MRR (bs=1,000): 0.008
+Test-python MRR (bs=1,000): 0.008
+FuncNameTest-python MRR (bs=1,000): 0.008
+Validation-python MRR (bs=1,000): 0.008
+
+wandb: Waiting for W&B process to finish, PID 48
+wandb: Program ended successfully.
+wandb: Run summary:
+wandb: \_step 293
+wandb: \_runtime 22996.463274002075
+wandb: train-mrr 0.5859921777225235
+wandb: train-loss 2.3594511764720805
+wandb: \_timestamp 1588466773.2661593
+wandb: val-mrr 0.3496708924666695
+wandb: train-time-sec 448.20907402038574
+wandb: val-time-sec 11.94708776473999
+wandb: val-loss 4.085803114849588
+wandb: epoch 47
+wandb: best*val_mrr_loss 4.163796611454176
+wandb: best_val_mrr 0.35001164510975713
+wandb: best_epoch 42
+wandb: Test-All MRR (bs=1,000) 0.007744362385912137
+wandb: FuncNameTest-All MRR (bs=1,000) 0.007686700811841948
+wandb: Validation-All MRR (bs=1,000) 0.007688682732382063
+wandb: Test-python MRR (bs=1,000) 0.007744362385912137
+wandb: FuncNameTest-python MRR (bs=1,000) 0.007686700811841948
+wandb: Validation-python MRR (bs=1,000) 0.007688682732382063
+wandb: best_val_mrr_loss 4.163796611454176
+wandb: best_val_mrr 0.35001164510975713
+wandb: best_epoch 42
+wandb: Test-All MRR (bs=1,000) 0.007744362385912137
+wandb: FuncNameTest-All MRR (bs=1,000) 0.007686700811841948
+wandb: Validation-All MRR (bs=1,000) 0.007688682732382063
+wandb: Test-python MRR (bs=1,000) 0.007744362385912137
+wandb: FuncNameTest-python MRR (bs=1,000) 0.007686700811841948
+wandb: Validation-python MRR (bs=1,000) 0.007688682732382063
+wandb: Syncing files in wandb/run-20200502_182258-2mhapg3r:
+wandb: tree-2020-05-02-18-22-58-graph.pbtxt
+wandb: tree-2020-05-02-18-22-58.train_log
+wandb: tree-2020-05-02-18-22-58_model_best.pkl.gz
+wandb: plus 9 W&B file(s) and 0 media file(s)
+wandb:
+wandb: Synced tree-2020-05-02-18-22-58: https://app.wandb.ai/jianguda/CodeSearchNet/runs/2mhapg3r
+root@jian-csn:/home/dev/code# python predict.py -r jianguda/CodeSearchNet/2mhapg3r
+Fetching run from W&B...
+Fetching run files from W&B...
+Restoring model from ./tree-2020-05-02-18-22-58_model_best.pkl.gz
+2020-05-03 06:34:50.742420: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
+2020-05-03 06:34:55.632308: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1432] Found device 0 with properties:
+name: Tesla K80 major: 3 minor: 7 memoryClockRate(GHz): 0.8235
+pciBusID: 7bd0:00:00.0
+totalMemory: 11.17GiB freeMemory: 11.11GiB
+2020-05-03 06:34:55.632355: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
+2020-05-03 06:34:55.903607: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
+2020-05-03 06:34:55.903671: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988] 0
+2020-05-03 06:34:55.903686: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0: N
+2020-05-03 06:34:55.903796: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 10762 MB memory) -> physical GPU (device: 0, name: Tesla K80, pci bus id: 7bd0:00:00.0, compute capability: 3.7)
+WARNING:tensorflow:From /home/dev/code/encoders/tree_tmp_encoder.py:483: calling softmax (from tensorflow.python.ops.nn_ops) with
+dim is deprecated and will be removed in a future version.
+Instructions for updating:
+dim is deprecated, use axis instead
+*@_@_@_@_@_@_@_@_@_@_@_@_@_@_@\_@
+Tensor("code_encoder/python/tree_encoder/MatMul_1:0", shape=(2, ?, 128), dtype=float32)
+Tensor("code_encoder/python/tree_encoder/Shape_3:0", shape=(3,), dtype=int32)
+Evaluating language: python
+100%|███████████████████████████████████████████████████████████████████████████████| 1156085/1156085 [00:05<00:00, 200123.75it/s]1156085it [00:19, 58207.13it/s]
+Uploading predictions to W&B
+NDCG Average: 0.005242633
