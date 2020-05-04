@@ -59,16 +59,33 @@ Overall, NBOW << CNN ≈ RNN < BERT.
 
 **based on leaf-token data, train over Python and predict over Python**
 
+RNN is used as the query encoder
+
 |    Model     |    MRR    |   NDCG    |
 | :----------: | :-------: | :-------: |
-|  NBOW-leaf   | **0.532** | **0.132** |
-| attNBOW-leaf | **0.540** | **0.142** |
+|  NBOW-leaf   | **0.530** | **0.152** |
+| attNBOW-leaf | **0.539** | **0.156** |
 |   CNN-leaf   |   0.276   |   0.077   |
-| attCNN-leaf  |   0.208   |   0.043   |
-|   RNN-leaf   | **0.655** | **0.183** |
-| attRNN-leaf  | **0.655** | **0.190** |
+| attCNN-leaf  |   0.257   |   0.087   |
+|   RNN-leaf   | **0.666** | **0.171** |
+| attRNN-leaf  | **0.653** | **0.180** |
 |  BERT-leaf   |   0.429   |   0.067   |
 | attBERT-leaf |   0.099   |   0.004   |
+
+**based on leaf-token data, train over Python and predict over Python**
+
+NBOW is used as the query encoder
+
+|    Model     |    MRR    |   NDCG    |
+| :----------: | :-------: | :-------: |
+|  NBOW-leaf   | **0.587** | **0.167** |
+| attNBOW-leaf | **0.579** | **0.201** |
+|   CNN-leaf   |   0.209   |   0.141   |
+| attCNN-leaf  |   0.137   |   0.102   |
+|   RNN-leaf   | **0.588** | **0.186** |
+| attRNN-leaf  | **0.440** | **0.185** |
+|  BERT-leaf   |   0.508   |   0.156   |
+| attBERT-leaf |   0.481   |   0.126   |
 
 <!-- |  Tree-leaf   |   0.531   |   0.129   |
 | attTree-leaf |   0.008   |   0.005   | -->
@@ -133,7 +150,7 @@ The number of functions (code snippets along with documents) used for training/v
 1. prepare the Azure VM (following `archive/setup`)
 2. check CodeSearchNet [QuickStart](https://github.com/github/CodeSearchNet#quickstart)
 3. override the official **code** with mine
-4. run the `tree` model
+4. run the `treeleaf`, `treepath` or `treeall` model
 
 ## changes
 
@@ -149,7 +166,9 @@ compared with the CSN code, my changes are on following code files:
 - `code/encoders/tree/*`
 - `code/models/__init__.py`
 - `code/models/alon_model.py`
-- `code/models/tree_model.py`
+- `code/models/tree_all_model.py`
+- `code/models/tree_leaf_model.py`
+- `code/models/tree_path_model.py`
 - `code/models/model.py`
 - `code/scripts/*`
 - `code/model_restore_helper.py`

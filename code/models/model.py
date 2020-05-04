@@ -160,9 +160,6 @@ class Model(ABC):
         # save directory as tensorboard.
         self.__tensorboard_dir = log_save_dir
 
-        # whether the data is load in batch (AST-paths) or one by one (tokens)
-        self._load_data = False
-
     @property
     def query_metadata(self):
         return self.__query_metadata
@@ -440,9 +437,6 @@ class Model(ABC):
                                                                     raw_query_metadata)
                 print('$A1E', end='\r')
 
-            if self._load_data:
-                # JGD try another way to load preprocessed data
-                pass
             yield (raw_query_metadata, per_code_language_metadata)
 
         def received_result_callback(metadata_parser_result: Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]]):
@@ -457,10 +451,6 @@ class Model(ABC):
 
         def finished_callback():
             pass
-
-        # JGD check again
-        # if self._load_data:
-        #     parallelize = False
 
         if parallelize:
             run_jobs_in_parallel(get_data_files_from_directory(data_dirs, max_files_per_dir),

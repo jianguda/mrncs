@@ -2,8 +2,8 @@ from typing import Dict, Any, Union, Tuple
 
 import tensorflow as tf
 
-from encoders.tree.leaf_encoder import LeafEncoder
-from encoders.tree.path_encoder import PathEncoder
+from .tree.common import Common
+from .tree.path_encoder import PathEncoder
 from .utils.bert_self_attention import BertConfig, BertModel
 from utils.tfutils import get_activation, write_to_feed_dict, pool_sequence_embedding
 
@@ -174,16 +174,6 @@ class TreePathEncoder(PathEncoder):
         else:
             raise ValueError("Unknown position encoding '%s'!" % position_encoding)
 
-    def make_model(self, is_train: bool=False) -> tf.Tensor:
-        option = 'leaf1'
-        if option == 'leaf1':
-            # baseline models for leaf tokens
-            return self._model4leaf1(is_train)
-        elif option == 'leaf2':
-            # (nbow + rnn) for leaf tokens
-            return self._model4leaf2(is_train)
-        return self._model4leaf1(is_train)
-
     def init_minibatch(self, batch_data: Dict[str, Any]) -> None:
         super().init_minibatch(batch_data)
         # batch_data['tokens'] = []
@@ -199,7 +189,18 @@ class TreePathEncoder(PathEncoder):
         # write_to_feed_dict(feed_dict, self.placeholders['tokens'], batch_data['tokens'])
         write_to_feed_dict(feed_dict, self.placeholders['tokens_lengths'], batch_data['tokens_lengths'])
 
-    def _model4leaf1(self, is_train: bool=False) -> tf.Tensor:
+    def make_model(self, is_train: bool=False) -> tf.Tensor:
+        # it is meaningless to combine two models on same data
+        # therefore, I always use _single_model for real
+        for_real = True
+        if for_real:
+            # baseline models for tokens
+            return self._single_model(is_train)
+        else:
+            # (nbow + rnn) for tokens
+            return self._complex_model(is_train)
+
+    def _single_model(self, is_train: bool=False) -> tf.Tensor:
         model = 'nbow'  # nbow, cnn, rnn, bert
         attention = False
         embedding = None
@@ -334,9 +335,9 @@ class TreePathEncoder(PathEncoder):
             else:
                 return embedding
 
-    def _model4leaf2(self, is_train: bool=False) -> tf.Tensor:
+    def _complex_model(self, is_train: bool=False) -> tf.Tensor:
         models = ['nbow', 'rnn']  # nbow, cnn, rnn, bert
-        attention = True
+        attention = False
         embeddings = list()
         with tf.variable_scope("tree_encoder"):
             self._make_placeholders()
@@ -442,7 +443,7 @@ class TreePathEncoder(PathEncoder):
 
             embeddings = tf.stack(embeddings, axis=0)
             if attention:
-                embeddings = self.self_attention_layer(embeddings)
+                embeddings = Common.self_attention_layer(embeddings)
             # "concat one-hot" is equal to "accumulate embedding"
             # [v1^T, v2^T, v3^T] * W = [v1^T, v2^T, v3^T]*[w1, w2, w3]^T = v1^T*w1+v2^T*w2+v3^T*w3
             print('*@' * 16)
@@ -450,26 +451,3 @@ class TreePathEncoder(PathEncoder):
             print(tf.shape(embeddings))
             return tf.reduce_sum(embeddings, axis=0)
             # return tf.reduce_mean(embeddings, axis=0)
-
-    def self_attention_layer(self, inputs, seq_len=128, hidden_dim=64):
-        batch_size = 1
-        input_seq_len = seq_len
-        output_seq_len = seq_len
-        # inputs = tf.random_normal((batch_size, input_seq_len, hidden_dim))
-        Q_layer = tf.layers.dense(inputs, hidden_dim)  # [batch_size, input_seq_len, hidden_dim]
-        K_layer = tf.layers.dense(inputs, hidden_dim)  # [batch_size, input_seq_len, hidden_dim]
-        V_layer = tf.layers.dense(inputs, output_seq_len)  # [batch_size, input_seq_len, output_seq_len]
-        # attention function
-        # [batch_size, input_seq_len, input_seq_len]
-        attention = tf.matmul(Q_layer, K_layer, transpose_b=True)
-        # scale
-        # [batch_size, input_seq_len, output_seq_len]
-        head_size = tf.cast(tf.shape(K_layer)[-1], dtype=tf.float32)
-        attention = tf.divide(attention, tf.sqrt(head_size))
-        # mask
-        # L670@bert_self_attention.py
-        # [batch_size, input_seq_len, input_seq_len]
-        attention = tf.nn.softmax(attention, dim=-1)
-        # [batch_size, input_seq_len, output_seq_len]
-        outputs = tf.matmul(attention, V_layer)
-        return outputs

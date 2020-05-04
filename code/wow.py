@@ -7,8 +7,10 @@ if __name__ == '__main__':
     #  done baseline(att) for leaf-token
     #  done baseline(att) for tree-path
     #  done check the att part
+    #  todo (preprocessing docstring tokens)
     #  todo nbow (leaf-token) + rnn (tree-path)
     #  todo compare code2vec and multi-modal model
+    #  todo subtoken?
     #  ......
     #  leaf + path V.S. treeLSTM
     #  Siamese NN

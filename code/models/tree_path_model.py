@@ -1,16 +1,16 @@
 from typing import Any, Dict, Optional
 
-from encoders import RNNEncoder, TreeEncoder
+from encoders import RNNEncoder, TreePathEncoder
 from models import Model
 
 
-class TreeModel(Model):
+class TreePathModel(Model):
     @classmethod
     def get_default_hyperparameters(cls) -> Dict[str, Any]:
         hypers = {}
         for label in ["code", "query"]:
             hypers.update({f'{label}_{key}': value
-                           for key, value in TreeEncoder.get_default_hyperparameters().items()})
+                           for key, value in TreePathEncoder.get_default_hyperparameters().items()})
         model_hypers = {
             'code_use_subtokens': False,
             'code_mark_subtoken_end': True,
@@ -27,7 +27,7 @@ class TreeModel(Model):
                  log_save_dir: Optional[str] = None):
         super().__init__(
             hyperparameters,
-            code_encoder_type=TreeEncoder,
+            code_encoder_type=TreePathEncoder,
             query_encoder_type=RNNEncoder,
             run_name=run_name,
             model_save_dir=model_save_dir,

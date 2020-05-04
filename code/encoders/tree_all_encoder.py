@@ -2,12 +2,13 @@ from typing import Any, Dict, Optional, Tuple, Iterable, List
 
 import tensorflow as tf
 
-from encoders.encoder import Encoder, QueryType
-from encoders.tree_leaf_encoder import TreeLeafEncoder
-from encoders.tree_path_encoder import TreePathEncoder
+from .tree.common import Common
+from .encoder import Encoder, QueryType
+from .tree_leaf_encoder import TreeLeafEncoder
+from .tree_path_encoder import TreePathEncoder
 
 
-class TreeEncoder(Encoder):
+class TreeAllEncoder(Encoder):
     def make_model(self, is_train: bool = False) -> tf.Tensor:
         attention = True
         embeddings = list()
@@ -18,7 +19,7 @@ class TreeEncoder(Encoder):
             embeddings.append(embedding4path)
             embeddings = tf.stack(embeddings, axis=0)
             if attention:
-                embeddings = self.self_attention_layer(embeddings)
+                embeddings = Common.self_attention_layer(embeddings)
             # "concat one-hot" is equal to "accumulate embedding"
             # [v1^T, v2^T, v3^T] * W = [v1^T, v2^T, v3^T]*[w1, w2, w3]^T = v1^T*w1+v2^T*w2+v3^T*w3
             print('*@' * 16)
@@ -26,29 +27,6 @@ class TreeEncoder(Encoder):
             print(tf.shape(embeddings))
             return tf.reduce_sum(embeddings, axis=0)
             # return tf.reduce_mean(embeddings, axis=0)
-
-    def self_attention_layer(self, inputs, seq_len=128, hidden_dim=64):
-        batch_size = 1
-        input_seq_len = seq_len
-        output_seq_len = seq_len
-        # inputs = tf.random_normal((batch_size, input_seq_len, hidden_dim))
-        Q_layer = tf.layers.dense(inputs, hidden_dim)  # [batch_size, input_seq_len, hidden_dim]
-        K_layer = tf.layers.dense(inputs, hidden_dim)  # [batch_size, input_seq_len, hidden_dim]
-        V_layer = tf.layers.dense(inputs, output_seq_len)  # [batch_size, input_seq_len, output_seq_len]
-        # attention function
-        # [batch_size, input_seq_len, input_seq_len]
-        attention = tf.matmul(Q_layer, K_layer, transpose_b=True)
-        # scale
-        # [batch_size, input_seq_len, output_seq_len]
-        head_size = tf.cast(tf.shape(K_layer)[-1], dtype=tf.float32)
-        attention = tf.divide(attention, tf.sqrt(head_size))
-        # mask
-        # L670@bert_self_attention.py
-        # [batch_size, input_seq_len, input_seq_len]
-        attention = tf.nn.softmax(attention, dim=-1)
-        # [batch_size, input_seq_len, output_seq_len]
-        outputs = tf.matmul(attention, V_layer)
-        return outputs
 
     @classmethod
     def get_default_hyperparameters(cls) -> Dict[str, Any]:
