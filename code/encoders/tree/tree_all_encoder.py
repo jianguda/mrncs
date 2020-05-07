@@ -2,10 +2,12 @@ from typing import Any, Dict, Optional, Tuple, Iterable, List
 
 import tensorflow as tf
 
-from .tree.common import Common
-from .encoder import Encoder, QueryType
+
+from .common import Common
 from .tree_leaf_encoder import TreeLeafEncoder
 from .tree_path_encoder import TreePathEncoder
+from .tree_raw_encoder import TreeRawEncoder
+from ..encoder import Encoder, QueryType
 
 
 class TreeAllEncoder(Encoder):

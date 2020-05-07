@@ -6,7 +6,7 @@ from pathlib import Path
 
 from dpu_utils.utils import load_jsonl_gz
 
-from .ts import code2paths, code2paths4py
+from .ts import code2identifiers, code2paths, code2paths4py
 
 
 # JGD for alon_encoder
@@ -30,11 +30,11 @@ def collect_filenames(path):
     return filenames
 
 
-def prepare_data(filenames):
+def prepare_data(filenames, key='code'):
     for filename in filenames:
         for sample in load_jsonl_gz(filename):
-            code = sample['code']
-            yield code
+            value = sample[key]
+            yield value
 
 
 def print_data(terminal_counter, nonterminal_counter):
@@ -88,6 +88,10 @@ def process_data(data, language='python', path=None):
     nonterminal_counter = Counter()
     for code in data:
         try:
+            # identifiers = code2identifiers(code, language)
+            # print(identifiers)
+            # tree_paths = code2paths(code, language)
+            # print(tree_paths)
             # JGD consider the top1M paths, just like in code2vec
             tree_paths = code2paths(code, language)
             # tree_paths = code2paths4py(code)
@@ -108,6 +112,18 @@ def process_data(data, language='python', path=None):
             traceback.print_exc()
     return terminal_counter, nonterminal_counter
     # return ast_contexts, None, None
+
+
+def check_data(language='python', key='docstring_tokens'):
+    path = get_path(language, True)
+    print('A')
+    filenames = collect_filenames(path)
+    print('B')
+    print(filenames)
+    data = prepare_data(filenames, key)
+    print('C')
+    for datum in data:
+        print(datum)
 
 
 def run4corpus(language='python', locally=False):

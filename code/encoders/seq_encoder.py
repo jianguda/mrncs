@@ -11,6 +11,7 @@ import tensorflow as tf
 from dpu_utils.codeutils import split_identifier_into_parts
 from dpu_utils.mlutils import Vocabulary
 
+from .tree.common import Common
 from .encoder import Encoder, QueryType
 
 
@@ -33,6 +34,8 @@ class SeqEncoder(Encoder):
         hypers.update(encoder_hypers)
         return hypers
 
+    preprocessing4code = False
+    preprocessing4query = False
     IDENTIFIER_TOKEN_REGEX = re.compile('[_a-zA-Z][_a-zA-Z0-9]*')
 
     def __init__(self, label: str, hyperparameters: Dict[str, Any], metadata: Dict[str, Any]):
@@ -92,10 +95,17 @@ class SeqEncoder(Encoder):
                 yield token
 
     @classmethod
-    def load_metadata_from_sample(cls, language: str, data_to_brew: Iterable[str], data_to_load: Iterable[str],
+    def load_metadata_from_sample(cls, language: str, data_to_brew: Any, data_to_load: Iterable[str],
                                   raw_metadata: Dict[str, Any], use_subtokens: bool=False, mark_subtoken_end: bool=False) -> None:
         if use_subtokens:
             data_to_load = cls._to_subtoken_stream(data_to_load, mark_subtoken_end=mark_subtoken_end)
+        # preprocessing
+        if language:
+            if cls.preprocessing4code:
+                data_to_load = Common.preprocessing_code(data_to_load)
+        else:
+            if cls.preprocessing4query:
+                data_to_load = Common.preprocessing_query(data_to_load)
         raw_metadata['token_counter'].update(data_to_load)
 
     @classmethod
@@ -136,6 +146,13 @@ class SeqEncoder(Encoder):
         function-name as the query, and replacing the function name in the code with an out-of-vocab token.
         Sub-tokenizes, converts, and pads both versions, and rejects empty samples.
         """
+        # preprocessing
+        if encoder_label == 'code':
+            if cls.preprocessing4code:
+                data_to_load = Common.preprocessing_code(data_to_load)
+        elif encoder_label == 'query':
+            if cls.preprocessing4query:
+                data_to_load = Common.preprocessing_query(data_to_load)
         # Save the two versions of the code and query:
         data_holder = {QueryType.DOCSTRING.value: data_to_load, QueryType.FUNCTION_NAME.value: None}
         # Skip samples where the function name is very short, because it probably has too little information

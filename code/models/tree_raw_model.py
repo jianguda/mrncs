@@ -1,16 +1,16 @@
 from typing import Any, Dict, Optional
 
-from encoders import NBoWEncoder, TreePathEncoder
+from encoders import NBoWEncoder, TreeRawEncoder
 from models import Model
 
 
-class TreePathModel(Model):
+class TreeRawModel(Model):
     @classmethod
     def get_default_hyperparameters(cls) -> Dict[str, Any]:
         hypers = {}
         label = 'code'
         hypers.update({f'{label}_{key}': value
-                       for key, value in TreePathEncoder.get_default_hyperparameters().items()})
+                       for key, value in TreeRawEncoder.get_default_hyperparameters().items()})
         label = 'query'
         hypers.update({f'{label}_{key}': value
                        for key, value in NBoWEncoder.get_default_hyperparameters().items()})
@@ -31,7 +31,7 @@ class TreePathModel(Model):
                  log_save_dir: Optional[str] = None):
         super().__init__(
             hyperparameters,
-            code_encoder_type=TreePathEncoder,
+            code_encoder_type=TreeRawEncoder,
             query_encoder_type=NBoWEncoder,
             run_name=run_name,
             model_save_dir=model_save_dir,

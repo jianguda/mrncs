@@ -33,12 +33,12 @@ CNN is almost always the worst when it is over single languages, but performs no
 
 **NDCG score (train over all language and predict over all languages)**
 
-|   Model   |  Go   | Java  |  JS   |  PHP  | Python | Ruby  | Avg.  |
-| :-------: | :---: | :---: | :---: | :---: | :----: | :---: | :---: |
-| NBOW-raw  | 0.118 | 0.146 | 0.168 | 0.144 | 0.220  | 0.209 | 0.168 |
-| 1dCNN-raw | 0.057 | 0.156 | 0.037 | 0.132 | 0.167  | 0.109 | 0.110 |
-| biRNN-raw | 0.040 | 0.081 | 0.014 | 0.060 | 0.065  | 0.039 | 0.050 |
-| BERT-raw  |   -   |   -   |   -   |   -   |   -    |   -   |   -   |
+|   Model   |  Go   | Java  |  JS   |  PHP  |  Python   | Ruby  |   Avg.    |
+| :-------: | :---: | :---: | :---: | :---: | :-------: | :---: | :-------: |
+| NBOW-raw  | 0.118 | 0.146 | 0.168 | 0.144 | **0.220** | 0.209 | **0.168** |
+| 1dCNN-raw | 0.057 | 0.156 | 0.037 | 0.132 |   0.167   | 0.109 |   0.110   |
+| biRNN-raw | 0.040 | 0.081 | 0.014 | 0.060 |   0.065   | 0.039 |   0.050   |
+| BERT-raw  |   -   |   -   |   -   |   -   |     -     |   -   |     -     |
 
 NDCG: the Normalized Discounted Cumulative Gain (NDCG) score (the higher the better)
 
@@ -57,7 +57,7 @@ Overall, NBOW << CNN ≈ RNN < BERT.
 
 ## extensions
 
-**based on leaf-token data, train over Python and predict over Python**
+<!-- **based on leaf-token data, train over Python and predict over Python**
 
 RNN is used as the query encoder
 
@@ -70,9 +70,12 @@ RNN is used as the query encoder
 |   RNN-leaf   | **0.666** | **0.171** |
 | attRNN-leaf  | **0.653** | **0.180** |
 |  BERT-leaf   |   0.429   |   0.067   |
-| attBERT-leaf |   0.099   |   0.004   |
+| attBERT-leaf |   0.099   |   0.004   | -->
 
-**based on leaf-token data, train over Python and predict over Python**
+<!-- |  Tree-leaf   |   0.531   |   0.129   |
+| attTree-leaf |   0.008   |   0.005   | -->
+
+<!-- **based on leaf-token data, train over Python and predict over Python**
 
 NBOW is used as the query encoder
 
@@ -85,19 +88,54 @@ NBOW is used as the query encoder
 |   RNN-leaf   | **0.588** | **0.186** |
 | attRNN-leaf  | **0.440** | **0.185** |
 |  BERT-leaf   |   0.508   |   0.156   |
-| attBERT-leaf |   0.481   |   0.126   |
+| attBERT-leaf |   0.481   |   0.126   | -->
 
-<!-- |  Tree-leaf   |   0.531   |   0.129   |
-| attTree-leaf |   0.008   |   0.005   | -->
+<!-- **conclusion** we have run some experiments with the given four baseline models and found NBOW and RNN (+attention) are expected to generate the most ideal NDCG scores. Besides, we compared the two cases where RNN and NBOW are used as the query encoder, and find NDCG scores are always higher when we use NBOW query-encoder. Therefore, in later experiments, we only NBOW as query-encoder, and try NBOW and RNN (attention) for code encoder. -->
 
-**based on tree-path data, train over Python and predict over Python**
+---
 
-|    Model     |  MRR  |   NDCG    |
-| :----------: | :---: | :-------: |
-|  NBOW-path   | 0.394 |   0.092   |
-| attNBOW-path | 0.416 |   0.093   |
-|   RNN-path   | 0.615 |   0.140   |
-| attRNN-path  | 0.609 | **0.189** |
+because NBOW is the best baseline model, we make improvements on the NBOW model. Which means, NBOW is used as the coder encoder and the query encoder.
+
+**NBOW train over Python and predict over Python**
+
+|       Model        |  MRR  |   NDCG    |
+| :----------------: | :---: | :-------: |
+|      raw-old       | 0.643 |   0.299   |
+|      raw-new       | 0.642 |   0.264   |
+| raw-preprocessing  | 0.636 | **0.315** |
+|        leaf        | 0.620 |   0.267   |
+| leaf-preprocessing |   -   |     -     |
+|        path        |   -   |     -     |
+| path-preprocessing |   -   |     -     |
+|        tree        |   -   |     -     |
+|   tree-attention   |   -   |     -     |
+| tree-preprocessing |   -   |     -     |
+
+<!-- |    raw-subtoken    | 0.015 | 0.003 | -->
+
+**NBOW train over Python and predict over Python**
+
+|                                   Model                                    |  MRR  |   NDCG    |
+| :------------------------------------------------------------------------: | :---: | :-------: |
+|                                  raw-old                                   | 0.643 |   0.299   |
+|                                  raw-new                                   | 0.642 |   0.264   |
+|                     raw-preprocessing(convert)(normal)                     | 0.645 |   0.282   |
+|                     raw-preprocessing(discard)(normal)                     | 0.646 |   0.255   |
+|                raw-preprocessing(normal)(remove-len1-word)                 | 0.636 | **0.315** |
+|                raw-preprocessing(normal)(remove-len2-word)                 |   -   |     -     |
+|                raw-preprocessing(normal)(remove-len3-word)                 |   -   |     -     |
+|                raw-preprocessing(normal)(remove-non-alpha)                 | 0.610 |   0.257   |
+|                raw-preprocessing(normal)(remove-stop-words)                | 0.641 |   0.303   |
+|                    raw-preprocessing(normal)(stemming)                     | 0.638 |   0.256   |
+|                   raw-preprocessing(normal)(deduplicate)                   | 0.638 |   0.285   |
+|                    raw-preprocessing(normal)(non-digit)                    | 0.639 |   0.265   |
+|                 raw-preprocessing(normal)(non-punctuation)                 | 0.643 |   0.280   |
+|            raw-preprocessing(normal)(non-digit&non-punctuation)            | 0.641 |   0.291   |
+|          raw-preprocessing(normal)(remove-len1-word&deduplicate)           | 0.636 |   0.270   |
+| raw-preprocessing(normal)(remove-len1-word&remove-stop-words&deduplicate)  | 0.638 |   0.270   |
+| raw-preprocessing(convert)(remove-len1-word&remove-stop-words&deduplicate) | 0.640 |   0.265   |
+
+**conclusion** ...
 
 **based on tree-path data, train over Python and predict over Python**
 
@@ -150,25 +188,22 @@ The number of functions (code snippets along with documents) used for training/v
 1. prepare the Azure VM (following `archive/setup`)
 2. check CodeSearchNet [QuickStart](https://github.com/github/CodeSearchNet#quickstart)
 3. override the official **code** with mine
-4. run the `treeleaf`, `treepath` or `treeall` model
+4. run the `treeleaf`, `treepath`, `treeraw` or `treeall` model
 
 ## changes
 
 compared with the CSN code, my changes are on following code files:
 
 - `code/encoders/__init__.py`
-- `code/encoders/alon_encoder.py`
 - `code/encoders/encoder.py`
 - `code/encoders/seq_encoder.py`
-- `code/encoders/tree_all_encoder.py`
-- `code/encoders/tree_leaf_encoder.py`
-- `code/encoders/tree_path_encoder.py`
 - `code/encoders/tree/*`
 - `code/models/__init__.py`
 - `code/models/alon_model.py`
 - `code/models/tree_all_model.py`
 - `code/models/tree_leaf_model.py`
 - `code/models/tree_path_model.py`
+- `code/models/tree_raw_model.py`
 - `code/models/model.py`
 - `code/scripts/*`
 - `code/model_restore_helper.py`

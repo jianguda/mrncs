@@ -422,7 +422,6 @@ class Model(ABC):
             per_code_language_metadata: DefaultDict[str, Dict[str, Any]] = defaultdict(self.__code_encoder_type.init_metadata)
             print('$A1B', end='\r')
 
-            sample_language = None
             for raw_sample in file_path.read_by_file_suffix():
                 sample_language = raw_sample['language']
                 print('$A1C', end='\r')

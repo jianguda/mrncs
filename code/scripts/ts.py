@@ -156,8 +156,8 @@ class TS:
                     middle = '|'.join('U' * prefix_len + 'D' * suffix_len)
                 else:
                     middle = '|U|'.join(prefix) + f'|U|{lca}|D|' + '|D|'.join(suffix)
-                tree_path = middle
-                # tree_path = f'{source},{middle},{target}'
+                # tree_path = middle
+                tree_path = f'{source},{middle},{target}'
                 tree_paths.append(tree_path)
 
         tree_paths = random.sample(tree_paths, min(100, len(tree_paths)))
