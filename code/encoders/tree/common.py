@@ -72,6 +72,7 @@ class Common:
     @staticmethod
     def preprocessing_code(tokens):
         backup = [token.lower() for token in tokens]
+        tokens = [token.lower() for token in tokens]
         # >>> from keyword import kwlist
         # >>> print(kwlist)
         keywords4python = [
@@ -79,6 +80,7 @@ class Common:
             'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda',
             'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield',
         ]
+        keywords4python = [token.lower() for token in keywords4python]
         # >>> import builtins
         # >>> dir(builtins)
         builtins4python = [
@@ -104,6 +106,7 @@ class Common:
             'reversed', 'round', 'set', 'setattr', 'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple',
             'type', 'vars', 'zip'
         ]
+        builtins4python = [token.lower() for token in builtins4python]
         # >>> characters
         characters4python = [
             '(', ')', '[', ']', '{', '}', ',', '.', ':', '+', '-', '*', '/', '%', '=', '!', '>', '<',
@@ -113,31 +116,30 @@ class Common:
         # strategy = 'discard'
         if strategy == 'convert':
             # transform language-specific stopwords
-            tokens = [token.lower() if token not in keywords4python else 'keyword' for token in tokens]
-            # tokens = [token.lower() if token not in builtins4python else 'builtin' for token in tokens]
-            tokens = [token.lower() if token not in characters4python else 'character' for token in tokens]
+            tokens = [token if token not in keywords4python else 'keyword' for token in tokens]
+            # tokens = [token if token not in builtins4python else 'builtin' for token in tokens]
+            tokens = [token if token not in characters4python else 'character' for token in tokens]
         elif strategy == 'discard':
             # remove language-specific stopwords
-            tokens = [token.lower() for token in tokens if token not in keywords4python]
-            # tokens = [token.lower() for token in tokens if token not in builtins4python]
-            tokens = [token.lower() for token in tokens if token not in characters4python]
+            tokens = [token for token in tokens if token not in keywords4python]
+            # tokens = [token for token in tokens if token not in builtins4python]
+            tokens = [token for token in tokens if token not in characters4python]
         return tokens if tokens else backup
 
     @staticmethod
     def preprocessing_query(tokens):
         backup = [token.lower() for token in tokens]
+        tokens = [token.lower() for token in tokens]
         # remove punctuations and non-alphas
-        # sentence = ' '.join(tokens)
-        # tokens = nltk.word_tokenize(sentence)
-        tokens = [token.lower() for token in tokens if len(token) > 1]
-        # tokens = [token.lower() for token in tokens if len(token) > 2]
-        # tokens = [token.lower() for token in tokens if len(token) > 3]
-        # tokens = [token.lower() for token in tokens if not token.isdigit()]
-        # tokens = [token.lower() for token in tokens if token not in string.punctuation]
-        # tokens = [token.lower() for token in tokens if token.isalpha()]
-        # deduplication & remove stop-words
+        tokens = [token for token in tokens if len(token) > 1]
+        # tokens = [token for token in tokens if len(token) > 2]
+        # tokens = [token for token in tokens if len(token) > 3]
+        # tokens = [token for token in tokens if not token.isdigit()]
+        # tokens = [token for token in tokens if token not in string.punctuation]
+        # tokens = [token for token in tokens if token.isalpha()]
+        # remove stop-words
         # stop_words = stopwords.words('english')
-        # tokens = list(set(tokens) - set(stop_words))
+        # tokens = [token for token in tokens if token not in stop_words]
         # stemming
         # https://easyai.tech/ai-definition/stemming-lemmatisation/
         # snowball_stemmer = SnowballStemmer('english')

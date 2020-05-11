@@ -131,7 +131,7 @@ if __name__ == '__main__':
             for idx, _ in zip(*query_model(query, model, indices, language)):
                 predictions.append((query, language, definitions[idx]['identifier'], definitions[idx]['url']))
         # JGD only predict over Python
-        break
+        # break
 
     df = pd.DataFrame(predictions, columns=['query', 'language', 'identifier', 'url'])
     df.to_csv(predictions_csv, index=False)

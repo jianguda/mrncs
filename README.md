@@ -4,7 +4,7 @@
 
 |   Model   |  Go   | Java  |  JS   |  PHP  |  Python   | Ruby  |  Ma-Avg.  |
 | :-------: | :---: | :---: | :---: | :---: | :-------: | :---: | :-------: |
-| NBOW-raw  | 0.668 | 0.581 | 0.427 | 0.568 | **0.643** | 0.321 | **0.535** |
+| NBOW-raw  | 0.668 | 0.581 | 0.427 | 0.568 | **0.638** | 0.321 | **0.535** |
 | 1dCNN-raw | 0.704 | 0.530 | 0.230 | 0.543 |   0.538   | 0.117 |   0.444   |
 | biRNN-raw | 0.708 | 0.581 | 0.369 | 0.601 | **0.643** | 0.223 | **0.521** |
 | BERT-raw  | 0.726 | 0.551 | 0.417 | 0.601 | **0.677** | 0.351 | **0.554** |
@@ -26,7 +26,7 @@ CNN is almost always the worst when it is over single languages, but performs no
 
 |   Model   |  Go   | Java  |  JS   |  PHP  |  Python   | Ruby  |  Ma-Avg.  |
 | :-------: | :---: | :---: | :---: | :---: | :-------: | :---: | :-------: |
-| NBOW-raw  | 0.117 | 0.209 | 0.065 | 0.149 | **0.299** | 0.129 | **0.161** |
+| NBOW-raw  | 0.117 | 0.209 | 0.065 | 0.149 | **0.292** | 0.129 | **0.161** |
 | 1dCNN-raw | 0.014 | 0.116 | 0.010 | 0.124 |   0.204   | 0.040 |   0.085   |
 | biRNN-raw | 0.031 | 0.122 | 0.025 | 0.098 |   0.184   | 0.055 |   0.086   |
 | BERT-raw  | 0.037 | 0.095 | 0.026 | 0.078 |   0.139   | 0.115 |   0.082   |
@@ -48,7 +48,7 @@ NBOW performs the best, and performances of the other three models are similar t
 
 |   Model   |  Go   | Java  |  JS   |  PHP  | Python | Ruby  |  All   |
 | :-------: | :---: | :---: | :---: | :---: | :----: | :---: | :----: |
-| NBOW-raw  | 0.257 | 0.316 | 0.128 | 0.584 | 0.392  | 0.050 | 2.010  |
+| NBOW-raw  | 0.257 | 0.316 | 0.128 | 0.584 | 0.365  | 0.050 | 2.010  |
 | 1dCNN-raw | 2.487 | 3.839 | 0.870 | 4.099 | 3.046  | 0.533 | 21.531 |
 | biRNN-raw | 1.356 | 3.513 | 0.772 | 2.953 | 3.010  | 0.433 | 18.949 |
 | BERT-raw  | 9.544 | 4.558 | 1.072 | 8.850 | 3.497  | 0.536 |   -    |
@@ -100,8 +100,7 @@ because NBOW is the best baseline model, we make improvements on the NBOW model.
 
 |       Model        |  MRR  |   NDCG    |
 | :----------------: | :---: | :-------: |
-|      raw-old       | 0.643 |   0.299   |
-|      raw-new       | 0.642 |   0.264   |
+|        raw         | 0.638 |   0.292   |
 | raw-preprocessing  | 0.636 | **0.315** |
 |        leaf        | 0.620 |   0.267   |
 | leaf-preprocessing |   -   |     -     |
@@ -115,25 +114,37 @@ because NBOW is the best baseline model, we make improvements on the NBOW model.
 
 **NBOW train over Python and predict over Python**
 
-|                                   Model                                    |  MRR  |   NDCG    |
-| :------------------------------------------------------------------------: | :---: | :-------: |
-|                                  raw-old                                   | 0.643 |   0.299   |
-|                                  raw-new                                   | 0.642 |   0.264   |
-|                     raw-preprocessing(convert)(normal)                     | 0.645 |   0.282   |
-|                     raw-preprocessing(discard)(normal)                     | 0.646 |   0.255   |
-|                raw-preprocessing(normal)(remove-len1-word)                 | 0.636 | **0.315** |
-|                raw-preprocessing(normal)(remove-len2-word)                 |   -   |     -     |
-|                raw-preprocessing(normal)(remove-len3-word)                 |   -   |     -     |
-|                raw-preprocessing(normal)(remove-non-alpha)                 | 0.610 |   0.257   |
-|                raw-preprocessing(normal)(remove-stop-words)                | 0.641 |   0.303   |
-|                    raw-preprocessing(normal)(stemming)                     | 0.638 |   0.256   |
-|                   raw-preprocessing(normal)(deduplicate)                   | 0.638 |   0.285   |
-|                    raw-preprocessing(normal)(non-digit)                    | 0.639 |   0.265   |
-|                 raw-preprocessing(normal)(non-punctuation)                 | 0.643 |   0.280   |
-|            raw-preprocessing(normal)(non-digit&non-punctuation)            | 0.641 |   0.291   |
-|          raw-preprocessing(normal)(remove-len1-word&deduplicate)           | 0.636 |   0.270   |
-| raw-preprocessing(normal)(remove-len1-word&remove-stop-words&deduplicate)  | 0.638 |   0.270   |
-| raw-preprocessing(convert)(remove-len1-word&remove-stop-words&deduplicate) | 0.640 |   0.265   |
+|                                Model                                |  MRR  |   NDCG    |
+| :-----------------------------------------------------------------: | :---: | :-------: |
+|                                 raw                                 | 0.638 |   0.292   |
+|                 raw-preprocessing(convert)(normal)                  | 0.645 |   0.282   |
+|                 raw-preprocessing(discard)(normal)                  | 0.646 |   0.255   |
+|              raw-preprocessing(normal)(non-len1-word)               | 0.636 | **0.315** |
+|              raw-preprocessing(normal)(non-len2-word)               | 0.636 |   0.251   |
+|              raw-preprocessing(normal)(non-len3-word)               | 0.607 |   0.226   |
+|                raw-preprocessing(normal)(non-digit)                 | 0.639 |   0.265   |
+|             raw-preprocessing(normal)(non-punctuation)              | 0.643 |   0.280   |
+|        raw-preprocessing(normal)(non-digit&non-punctuation)         | 0.641 |   0.291   |
+|                raw-preprocessing(normal)(only-alpha)                | 0.611 |   0.263   |
+|              raw-preprocessing(normal)(non-stop-words)              | 0.643 | **0.312** |
+|                 raw-preprocessing(normal)(stemming)                 | 0.638 |   0.256   |
+|               raw-preprocessing(normal)(deduplicate)                | 0.638 |   0.285   |
+|       raw-preprocessing(normal)(non-len1-word&non-stop-words)       | 0.640 |   0.291   |
+|      raw-preprocessing(normal)(non-punctuation&non-stop-words)      | 0.637 |   0.265   |
+| raw-preprocessing(normal)(non-digit&non-punctuation&non-stop-words) | 0.638 |   0.255   |
+
+**NBOW train over Python and predict over Python**
+
+|      Model      |    MRR    |   NDCG    | time (hours) |
+| :-------------: | :-------: | :-------: | :----------: |
+|  raw(softmax)   |   0.582   |   0.173   |    0.360     |
+|   raw(cosine)   | **0.638** | **0.292** |    0.365     |
+| raw(max-margin) |   0.583   |   0.176   |    0.355     |
+|  raw(triplet)   |   0.611   |   0.266   |    1.603     |
+
+<!-- |   CNN(cosine)   |   0.008   |   0.042   |    1.025     |
+|   RNN(cosine)   |   0.008   |   0.066   |    2.117     |
+|  BERT(cosine)   |     -     |     -     |      -       | -->
 
 **conclusion** ...
 

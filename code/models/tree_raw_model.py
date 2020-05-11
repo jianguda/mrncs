@@ -15,9 +15,10 @@ class TreeRawModel(Model):
         hypers.update({f'{label}_{key}': value
                        for key, value in NBoWEncoder.get_default_hyperparameters().items()})
         model_hypers = {
+            # 'learning_rate': 5e-4,
             'code_use_subtokens': False,
             'code_mark_subtoken_end': False,
-            'loss': 'cosine',
+            'loss': 'cosine',  # softmax, cosine, max-margin, triplet
             'batch_size': 1000
         }
         hypers.update(super().get_default_hyperparameters())

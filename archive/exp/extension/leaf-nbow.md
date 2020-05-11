@@ -1,83 +1,70 @@
 # raw
 
-Test-All MRR (bs=1,000): 0.642
-FuncNameTest-All MRR (bs=1,000): 0.520
-Validation-All MRR (bs=1,000): 0.607
-Test-python MRR (bs=1,000): 0.642
-FuncNameTest-python MRR (bs=1,000): 0.520
-Validation-python MRR (bs=1,000): 0.607
+Epoch 13 (valid) took 1.41s [processed 16354 samples/second]
+Validation: Loss: 1.065036 | MRR: 0.468127
+2020-05-11 18:21:31.941823: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
+2020-05-11 18:21:31.941907: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
+2020-05-11 18:21:31.941923: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988] 0
+2020-05-11 18:21:31.941933: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0: N
+2020-05-11 18:21:31.942031: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 10762 MB memory) -> physical GPU (device: 0, name: Tesla K80, pci bus id: 7ec4:00:00.0, compute capability: 3.7)
+Test-All MRR (bs=1,000): 0.638
+FuncNameTest-All MRR (bs=1,000): 0.518
+Validation-All MRR (bs=1,000): 0.606
+Test-python MRR (bs=1,000): 0.638
+FuncNameTest-python MRR (bs=1,000): 0.518
+Validation-python MRR (bs=1,000): 0.606
 
-wandb: Waiting for W&B process to finish, PID 54
+wandb: Waiting for W&B process to finish, PID 881
 wandb: Program ended successfully.
 wandb: Run summary:
+wandb: \_timestamp 1589221401.0904858
 wandb: \_step 89
-wandb: train-loss 0.8792753895220248
-wandb: \_runtime 1447.47190451622
-wandb: \_timestamp 1589017409.2978396
-wandb: train-mrr 0.843405099665077
-wandb: val-mrr 0.47118912671959917
-wandb: val-loss 1.0636994216753088
-wandb: train-time-sec 39.094627141952515
-wandb: val-time-sec 1.4557223320007324
+wandb: train-mrr 0.8437633864023153
+wandb: train-loss 0.8792643130404277
+wandb: \_runtime 1315.5687441825867
+wandb: val-time-sec 1.4063692092895508
+wandb: val-mrr 0.46812699823794157
+wandb: train-time-sec 38.489323139190674
 wandb: epoch 13
-wandb: best_val_mrr_loss 1.0634935368662295
-wandb: best_val_mrr 0.47282196708347485
+wandb: val-loss 1.0650362242823062
+wandb: best_val_mrr_loss 1.0642786077831103
+wandb: best_val_mrr 0.4696956979502802
 wandb: best_epoch 8
-wandb: Test-All MRR (bs=1,000) 0.6423246369422994
-wandb: FuncNameTest-All MRR (bs=1,000) 0.5198656606375424
-wandb: Validation-All MRR (bs=1,000) 0.6068565747372077
-wandb: Test-python MRR (bs=1,000) 0.6423246369422994
-wandb: FuncNameTest-python MRR (bs=1,000) 0.5198656606375424
-wandb: Validation-python MRR (bs=1,000) 0.6068565747372077
-wandb: Syncing files in wandb/run-20200509_091923-54f9fe7d:
-wandb: treeraw-2020-05-09-09-19-23-graph.pbtxt
-wandb: treeraw-2020-05-09-09-19-23.train_log
-wandb: treeraw-2020-05-09-09-19-23_model_best.pkl.gz
+wandb: Test-All MRR (bs=1,000) 0.6378405845031299
+wandb: FuncNameTest-All MRR (bs=1,000) 0.518248812212671
+wandb: Validation-All MRR (bs=1,000) 0.6057542802435112
+wandb: Test-python MRR (bs=1,000) 0.6378405845031299
+wandb: FuncNameTest-python MRR (bs=1,000) 0.518248812212671
+wandb: Validation-python MRR (bs=1,000) 0.6057542802435112
+wandb: Syncing files in wandb/run-20200511_180127-877djtj5:
+wandb: treeraw-2020-05-11-18-01-27-graph.pbtxt
+wandb: treeraw-2020-05-11-18-01-27.train_log
+wandb: treeraw-2020-05-11-18-01-27_model_best.pkl.gz
 wandb: plus 9 W&B file(s) and 0 media file(s)
 wandb:
-wandb: Synced treeraw-2020-05-09-09-19-23: https://app.wandb.ai/jianguda/CodeSearchNet/runs/54f9fe7d
-root@jian-csn:/home/dev/code# python predict.py -r jianguda/CodeSearchNet/54f9fe7d
+wandb: Synced treeraw-2020-05-11-18-01-27: https://app.wandb.ai/jianguda/CodeSearchNet/runs/877djtj5
+root@jian-csn:/home/dev/code# python predict.py -r jianguda/CodeSearchNet/877djtj5
 [nltk_data] Downloading package stopwords to /root/nltk_data...
 [nltk_data] Package stopwords is already up-to-date!
 Fetching run from W&B...
 Fetching run files from W&B...
-Restoring model from ./treeraw-2020-05-09-09-19-23_model_best.pkl.gz
-2020-05-09 09:43:53.837342: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
-2020-05-09 09:43:58.732852: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1432] Found device 0 with properties:
-root@jian-csn:/home/dev/code# python predict.py -r jianguda/CodeSearchNet/54f9fe7d
-[nltk_data] Downloading package stopwords to /root/nltk_data...
-[nltk_data] Package stopwords is already up-to-date!
-Fetching run from W&B...
-Fetching run files from W&B...
-Restoring model from ./treeraw-2020-05-09-09-19-23_model_best.pkl.gz
-2020-05-09 09:43:53.837342: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
-2020-05-09 09:43:58.732852: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1432] Found device 0 with properties:
-wandb: treeraw-2020-05-09-09-19-23_model_best.pkl.gz
-wandb: plus 9 W&B file(s) and 0 media file(s)
-wandb:
-wandb: Synced treeraw-2020-05-09-09-19-23: https://app.wandb.ai/jianguda/CodeSearchNet/runs/54f9fe7d
-root@jian-csn:/home/dev/code# python predict.py -r jianguda/CodeSearchNet/54f9fe7d  
-[nltk_data] Downloading package stopwords to /root/nltk_data...
-[nltk_data] Package stopwords is already up-to-date!
-Fetching run from W&B...
-Fetching run files from W&B...
-Restoring model from ./treeraw-2020-05-09-09-19-23_model_best.pkl.gz
-2020-05-09 09:43:53.837342: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
-2020-05-09 09:43:58.732852: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1432] Found device 0 with properties:
+Restoring model from ./treeraw-2020-05-11-18-01-27_model_best.pkl.gz
+2020-05-11 18:23:44.817967: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
+2020-05-11 18:23:49.641964: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1432] Found device 0 with properties:
 name: Tesla K80 major: 3 minor: 7 memoryClockRate(GHz): 0.8235
-pciBusID: e684:00:00.0
+pciBusID: 7ec4:00:00.0
 totalMemory: 11.17GiB freeMemory: 11.11GiB
-2020-05-09 09:43:58.732899: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
-2020-05-09 09:43:59.008692: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
-2020-05-09 09:43:59.008758: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988] 0
-2020-05-09 09:43:59.008775: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0: N
-2020-05-09 09:43:59.008886: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 10761 MB memory) -> physical GPU (device: 0, name: Tesla K80, pci bus id: e684:00:00.0, compute capability: 3.7)WARNING:tensorflow:From /home/dev/code/models/model.py:320: calling norm (from tensorflow.python.ops.linalg_ops) with keep_dims is deprecated and will be removed in a future version.
+2020-05-11 18:23:49.642009: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
+2020-05-11 18:23:49.921449: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
+2020-05-11 18:23:49.921512: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988] 0
+2020-05-11 18:23:49.921527: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0: N
+2020-05-11 18:23:49.921638: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 10762 MB memory) -> physical GPU (device: 0, name: Tesla K80, pci bus id: 7ec4:00:00.0, compute capability: 3.7)WARNING:tensorflow:From /home/dev/code/models/model.py:320: calling norm (from tensorflow.python.ops.linalg_ops) with keep_dims is deprecated and will be removed in a future version.
 Instructions for updating:
 keep_dims is deprecated, use keepdims instead
 Evaluating language: python
-100%|██████████████████████████████████████████████████████████████████████████████████████| 1156085/1156085 [00:05<00:00, 195408.99it/s]1156085it [00:19, 57838.10it/s]
+100%|██████████████████████████████████████████████████████████████████████████████████████| 1156085/1156085 [00:05<00:00, 196525.05it/s]1156085it [00:19, 57911.13it/s]
 Uploading predictions to W&B
-NDCG Average: 0.263834884
+NDCG Average: 0.292252404
 
 # raw-preprocessing
 
