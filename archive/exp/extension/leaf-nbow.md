@@ -187,11 +187,140 @@ Evaluating language: python
 Uploading predictions to W&B
 NDCG Average: 0.267117210
 
-# leaf-preprocessing
+# leaf-preprocessing(non-len1-words)
+
+Epoch 15 (valid) took 1.43s [processed 16045 samples/second]
+Validation: Loss: 1.070236 | MRR: 0.456979
+2020-05-13 11:34:56.499186: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
+2020-05-13 11:34:56.499242: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
+2020-05-13 11:34:56.499257: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988] 0
+2020-05-13 11:34:56.499268: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0: N
+2020-05-13 11:34:56.499351: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 10762 MB memory) -> physical GPU (device: 0, name: Tesla K80, pci bus id: 713e:00:00.0, compute capability: 3.7)Test-All MRR (bs=1,000): 0.616
+FuncNameTest-All MRR (bs=1,000): 0.575
+Validation-All MRR (bs=1,000): 0.594
+Test-python MRR (bs=1,000): 0.616
+FuncNameTest-python MRR (bs=1,000): 0.575
+Validation-python MRR (bs=1,000): 0.594
+
+wandb: Waiting for W&B process to finish, PID 274
+wandb: Program ended successfully.
+wandb: Run summary:
+wandb: \_step 101
+wandb: \_runtime 2052.1392505168915
+wandb: \_timestamp 1589370202.5854619
+wandb: train-mrr 0.8434713368832486
+wandb: train-loss 0.8782250222939889
+wandb: epoch 15
+wandb: val-time-sec 1.4333908557891846
+wandb: val-loss 1.070236112760461
+wandb: train-time-sec 40.06779479980469
+wandb: val-mrr 0.45697907688306727
+wandb: best_val_mrr_loss 1.0696853036465852
+wandb: best_val_mrr 0.459366931417714
+wandb: best_epoch 10
+wandb: Test-All MRR (bs=1,000) 0.6161964633783772
+wandb: FuncNameTest-All MRR (bs=1,000) 0.5750612911450822
+wandb: Validation-All MRR (bs=1,000) 0.594268878819137
+wandb: Test-python MRR (bs=1,000) 0.6161964633783772
+wandb: FuncNameTest-python MRR (bs=1,000) 0.5750612911450822
+wandb: Validation-python MRR (bs=1,000) 0.594268878819137
+wandb: Syncing files in wandb/run-20200513_110912-9rkw0jd7:
+wandb: treeleaf-2020-05-13-11-09-12-graph.pbtxt
+wandb: treeleaf-2020-05-13-11-09-12.train_log
+wandb: treeleaf-2020-05-13-11-09-12_model_best.pkl.gz
+wandb: plus 9 W&B file(s) and 0 media file(s)
+wandb:
+wandb: Synced treeleaf-2020-05-13-11-09-12: https://app.wandb.ai/jianguda/CodeSearchNet/runs/9rkw0jd7
+root@jian-csn:/home/dev/code# python predict.py -r jianguda/CodeSearchNet/9rkw0jd7
+[nltk_data] Downloading package stopwords to /root/nltk_data...
+[nltk_data] Package stopwords is already up-to-date!
+Fetching run from W&B...
+Fetching run files from W&B...
+Restoring model from ./treeleaf-2020-05-13-11-09-12_model_best.pkl.gz
+2020-05-13 11:43:47.006493: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
+2020-05-13 11:43:51.804988: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1432] Found device 0 with properties:
+name: Tesla K80 major: 3 minor: 7 memoryClockRate(GHz): 0.8235
+pciBusID: 713e:00:00.0
+totalMemory: 11.17GiB freeMemory: 11.11GiB
+2020-05-13 11:43:51.805035: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
+2020-05-13 11:43:52.077447: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
+2020-05-13 11:43:52.077511: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988] 0
+2020-05-13 11:43:52.077526: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0: N
+2020-05-13 11:43:52.077633: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 10762 MB memory) -> physical GPU (device: 0, name: Tesla K80, pci bus id: 713e:00:00.0, compute capability: 3.7)WARNING:tensorflow:From /home/dev/code/models/model.py:320: calling norm (from tensorflow.python.ops.linalg_ops) with keep_dims is deprecated and will be removed in a future version.
+Instructions for updating:
+keep_dims is deprecated, use keepdims instead
+Evaluating language: python
+100%|██████████████████████████████████████████████████████████████████████████████████████| 1156085/1156085 [00:05<00:00, 196617.59it/s]1156085it [00:20, 56856.60it/s]
+Uploading predictions to W&B
+
+# leaf-preprocessing(non-stop-words)
+
+Epoch 10 (valid) took 1.41s [processed 16261 samples/second]
+Validation: Loss: 1.070220 | MRR: 0.458410
+2020-05-13 13:15:03.025216: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
+2020-05-13 13:15:03.025280: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
+2020-05-13 13:15:03.025294: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988] 0
+2020-05-13 13:15:03.025305: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0: N
+2020-05-13 13:15:03.025404: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 10762 MB memory) -> physical GPU (device: 0, name: Tesla K80, pci bus id: 713e:00:00.0, compute capability: 3.7)Test-All MRR (bs=1,000): 0.612
+FuncNameTest-All MRR (bs=1,000): 0.573
+Validation-All MRR (bs=1,000): 0.592
+Test-python MRR (bs=1,000): 0.612
+FuncNameTest-python MRR (bs=1,000): 0.573
+Validation-python MRR (bs=1,000): 0.592
+
+wandb: Waiting for W&B process to finish, PID 478
+wandb: Program ended successfully.
+wandb: Run summary:
+wandb: train-mrr 0.8336081725185357
+wandb: train-loss 0.8843383817996794
+wandb: \_runtime 1935.0882823467255
+wandb: \_step 71
+wandb: \_timestamp 1589376247.524795
+wandb: val-mrr 0.4584103731901749
+wandb: val-time-sec 1.4143702983856201
+wandb: epoch 10
+wandb: train-time-sec 40.18769574165344
+wandb: val-loss 1.0702199417611826
+wandb: best_val_mrr_loss 1.0686701069707456
+wandb: best_val_mrr 0.4590649201766304
+wandb: best_epoch 5
+wandb: Test-All MRR (bs=1,000) 0.6116498774181688
+wandb: FuncNameTest-All MRR (bs=1,000) 0.5727390513933928
+wandb: Validation-All MRR (bs=1,000) 0.5918950030417786
+wandb: Test-python MRR (bs=1,000) 0.6116498774181688
+wandb: FuncNameTest-python MRR (bs=1,000) 0.5727390513933928
+wandb: Validation-python MRR (bs=1,000) 0.5918950030417786
+wandb: Syncing files in wandb/run-20200513_125153-zx3x3yez:
+wandb: treeleaf-2020-05-13-12-51-53-graph.pbtxt
+wandb: treeleaf-2020-05-13-12-51-53.train_log
+wandb: treeleaf-2020-05-13-12-51-53_model_best.pkl.gz
+wandb: plus 9 W&B file(s) and 0 media file(s)
+wandb:
+wandb: Synced treeleaf-2020-05-13-12-51-53: https://app.wandb.ai/jianguda/CodeSearchNet/runs/zx3x3yez
+root@jian-csn:/home/dev/code# python predict.py -r jianguda/CodeSearchNet/zx3x3yez
+[nltk_data] Downloading package stopwords to /root/nltk_data...
+[nltk_data] Package stopwords is already up-to-date!
+Fetching run from W&B...
+Fetching run files from W&B...
+Restoring model from ./treeleaf-2020-05-13-12-51-53_model_best.pkl.gz
+2020-05-13 13:36:17.577466: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
+2020-05-13 13:36:22.337051: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1432] Found device 0 with properties:
+name: Tesla K80 major: 3 minor: 7 memoryClockRate(GHz): 0.8235
+pciBusID: 713e:00:00.0
+totalMemory: 11.17GiB freeMemory: 11.11GiB
+2020-05-13 13:36:22.337100: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
+2020-05-13 13:36:22.611728: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
+2020-05-13 13:36:22.611795: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988] 0
+2020-05-13 13:36:22.611811: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0: N
+2020-05-13 13:36:22.611922: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 10762 MB memory) -> physical GPU (device: 0, name: Tesla K80, pci bus id: 713e:00:00.0, compute capability: 3.7)WARNING:tensorflow:From /home/dev/code/models/model.py:320: calling norm (from tensorflow.python.ops.linalg_ops) with keep_dims is deprecated and will be removed in a future version.
+Instructions for updating:
+keep_dims is deprecated, use keepdims instead
+Evaluating language: python
+100%|██████████████████████████████████████████████████████████████████████████████████████| 1156085/1156085 [00:05<00:00, 195806.14it/s]1156085it [00:19, 57832.39it/s]
+Uploading predictions to W&B
+NDCG Average: 0.259327673
 
 # path
-
-# path-attention
 
 # path-preprocessing
 

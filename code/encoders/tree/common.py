@@ -131,15 +131,15 @@ class Common:
         backup = [token.lower() for token in tokens]
         tokens = [token.lower() for token in tokens]
         # remove punctuations and non-alphas
-        tokens = [token for token in tokens if len(token) > 1]
+        # tokens = [token for token in tokens if len(token) > 1]
         # tokens = [token for token in tokens if len(token) > 2]
         # tokens = [token for token in tokens if len(token) > 3]
         # tokens = [token for token in tokens if not token.isdigit()]
         # tokens = [token for token in tokens if token not in string.punctuation]
         # tokens = [token for token in tokens if token.isalpha()]
         # remove stop-words
-        # stop_words = stopwords.words('english')
-        # tokens = [token for token in tokens if token not in stop_words]
+        stop_words = stopwords.words('english')
+        tokens = [token for token in tokens if token not in stop_words]
         # stemming
         # https://easyai.tech/ai-definition/stemming-lemmatisation/
         # snowball_stemmer = SnowballStemmer('english')

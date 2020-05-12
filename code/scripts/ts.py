@@ -146,8 +146,8 @@ class TS:
             prefix, lca, suffix = self.merge_paths(u_path, v_path)
             prefix_len = len(prefix)
             suffix_len = len(suffix)
-            if 1 <= prefix_len and 1 <= suffix_len\
-                    and prefix_len + 1 + suffix_len <= max_path_length\
+            # 1 <= prefix_len and 1 <= suffix_len
+            if prefix_len + 1 + suffix_len <= max_path_length\
                     and abs(prefix_len - suffix_len) <= max_path_width:
                 source, target = u_value, v_value
                 if self.path_style == 'L2L':
@@ -160,7 +160,8 @@ class TS:
                 tree_path = f'{source},{middle},{target}'
                 tree_paths.append(tree_path)
 
-        tree_paths = random.sample(tree_paths, min(100, len(tree_paths)))
+        # JGD maybe consider some sampling strategies
+        tree_paths = random.sample(tree_paths, min(10, len(tree_paths)))
 
         if self.debug:
             print(f'{"@" * 9}tree_paths\n{tree_paths}')

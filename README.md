@@ -98,17 +98,18 @@ because NBOW is the best baseline model, we make improvements on the NBOW model.
 
 **NBOW train over Python and predict over Python**
 
-|       Model        |  MRR  |   NDCG    |
-| :----------------: | :---: | :-------: |
-|        raw         | 0.638 |   0.292   |
-| raw-preprocessing  | 0.636 | **0.315** |
-|        leaf        | 0.620 |   0.267   |
-| leaf-preprocessing |   -   |     -     |
-|        path        |   -   |     -     |
-| path-preprocessing |   -   |     -     |
-|        tree        |   -   |     -     |
-|   tree-attention   |   -   |     -     |
-| tree-preprocessing |   -   |     -     |
+|               Model                |  MRR  |   NDCG    |
+| :--------------------------------: | :---: | :-------: |
+|                raw                 | 0.638 |   0.292   |
+|         raw-preprocessing          | 0.636 | **0.315** |
+|                leaf                | 0.620 |   0.267   |
+| leaf-preprocessing(non-len1-words) | 0.616 |   0.242   |
+| leaf-preprocessing(non-stop-words) | 0.612 |   0.259   |
+|                path                |   -   |     -     |
+|         path-preprocessing         |   -   |     -     |
+|                tree                |   -   |     -     |
+|           tree-attention           |   -   |     -     |
+|         tree-preprocessing         |   -   |     -     |
 
 <!-- |    raw-subtoken    | 0.015 | 0.003 | -->
 
@@ -119,9 +120,9 @@ because NBOW is the best baseline model, we make improvements on the NBOW model.
 |                                 raw                                 | 0.638 |   0.292   |
 |                 raw-preprocessing(convert)(normal)                  | 0.645 |   0.282   |
 |                 raw-preprocessing(discard)(normal)                  | 0.646 |   0.255   |
-|              raw-preprocessing(normal)(non-len1-word)               | 0.636 | **0.315** |
-|              raw-preprocessing(normal)(non-len2-word)               | 0.636 |   0.251   |
-|              raw-preprocessing(normal)(non-len3-word)               | 0.607 |   0.226   |
+|              raw-preprocessing(normal)(non-len1-words)              | 0.636 | **0.315** |
+|              raw-preprocessing(normal)(non-len2-words)              | 0.636 |   0.251   |
+|              raw-preprocessing(normal)(non-len3-words)              | 0.607 |   0.226   |
 |                raw-preprocessing(normal)(non-digit)                 | 0.639 |   0.265   |
 |             raw-preprocessing(normal)(non-punctuation)              | 0.643 |   0.280   |
 |        raw-preprocessing(normal)(non-digit&non-punctuation)         | 0.641 |   0.291   |
@@ -129,7 +130,7 @@ because NBOW is the best baseline model, we make improvements on the NBOW model.
 |              raw-preprocessing(normal)(non-stop-words)              | 0.643 | **0.312** |
 |                 raw-preprocessing(normal)(stemming)                 | 0.638 |   0.256   |
 |               raw-preprocessing(normal)(deduplicate)                | 0.638 |   0.285   |
-|       raw-preprocessing(normal)(non-len1-word&non-stop-words)       | 0.640 |   0.291   |
+|      raw-preprocessing(normal)(non-len1-words&non-stop-words)       | 0.640 |   0.291   |
 |      raw-preprocessing(normal)(non-punctuation&non-stop-words)      | 0.637 |   0.265   |
 | raw-preprocessing(normal)(non-digit&non-punctuation&non-stop-words) | 0.638 |   0.255   |
 
@@ -146,24 +147,25 @@ because NBOW is the best baseline model, we make improvements on the NBOW model.
 |   RNN(cosine)   |   0.008   |   0.066   |    2.117     |
 |  BERT(cosine)   |     -     |     -     |      -       | -->
 
+**NBOW train over Python and predict over Python**
+
+|         Model          |  MRR  | NDCG  |
+| :--------------------: | :---: | :---: |
+|        treeleaf        | 0.620 | 0.267 |
+|   treepath(AST+L2L)    |   -   |   -   |
+|   treepath(SPT+L2L)    |   -   |   -   |
+|   treepath(HST+L2L)    |   -   |   -   |
+|   treepath(HPT+L2L)    |   -   |   -   |
+|  treepath(AST/SPT+UD)  |   -   |   -   |
+|  treepath(HST/HPT+UD)  | 0.032 | 0.003 |
+|   treepath(AST+U2D)    |   -   |   -   |
+|   treepath(SPT+U2D)    |   -   |   -   |
+|   treepath(HST+U2D)    |   -   |   -   |
+|   treepath(HPT+U2D)    |   -   |   -   |
+|  code2vec(leaf+path)   |   -   |   -   |
+| multi-modal(leaf+path) |   -   |   -   |
+
 **conclusion** ...
-
-**based on tree-path data, train over Python and predict over Python**
-
-for different types of tree-path data
-
-|    Model     | MRR | NDCG |
-| :----------: | :-: | :--: |
-|  NBOW-path   |  -  |  -   |
-| attNBOW-path |  -  |  -   |
-|   RNN-path   |  -  |  -   |
-| attRNN-path  |  -  |  -   |
-
-**based on hybrid data (leaf-token + tree-path), train over Python and predict over Python**
-
-|         Model          | MRR | NDCG |
-| :--------------------: | :-: | :--: |
-| Tree-hybrid (NBOW+RNN) |  -  |  -   |
 
 ## dataset
 
@@ -184,7 +186,8 @@ The number of functions (code snippets along with documents) used for training/v
 - **exp** experiment raw data
 - **report** weekly progress report
 - **setup** how to setup the Azure VM
-- `@.md` sensitive info
+- `@csn.md` sensitive info and guidance for csn (code1)
+- `@rok.md` sensitive info and guidance for rok (code2)
 - `memo.md` links of reference materials
 
 **code** changes to CodeSearchNet code
@@ -192,14 +195,21 @@ The number of functions (code snippets along with documents) used for training/v
 - **encoders** ...
 - **models** ...
 - **scripts** scripts for generating ASTs, Paths and Graphs
+
+**code2** the "devout-resonance-31" model by Rok Novosel https://github.com/novoselrok/codesnippetsearch
+
+- **rok**: changes to the original **code_search** (process data, train models and cache embeddings)
 ```
 
 ## how to run
 
 1. prepare the Azure VM (following `archive/setup`)
 2. check CodeSearchNet [QuickStart](https://github.com/github/CodeSearchNet#quickstart)
-3. override the official **code** with mine
+3. override the official **src** folder with my **code** folder
 4. run the `treeleaf`, `treepath`, `treeraw` or `treeall` model
+5. check CodeSnippetSearch [README](https://github.com/novoselrok/codesnippetsearch)
+6. override the official **code_search** folder with my **better** folder
+7. run models
 
 ## changes
 

@@ -87,13 +87,21 @@ vi models/tree_raw_model.py
 vi encoders/tree/tree_seq_encoder.py
 :204
 
-python train.py --model treeraw ../resources/saved_models ../resources/data/python/final/jsonl/train ../resources/data/python/final/jsonl/valid ../resources/data/python/final/jsonl/test
+# for multi-modal
 
-python train.py --model treeleaf ../resources/saved_models ../resources/data/python/final/jsonl/train ../resources/data/python/final/jsonl/valid ../resources/data/python/final/jsonl/test
+vi scripts/ts.py
+:63
+:164
+
+<!-- python train.py --model treeraw ../resources/saved_models ../resources/data/python/final/jsonl/train ../resources/data/python/final/jsonl/valid ../resources/data/python/final/jsonl/test -->
+
+<!-- python train.py --model treeleaf ../resources/saved_models ../resources/data/python/final/jsonl/train ../resources/data/python/final/jsonl/valid ../resources/data/python/final/jsonl/test -->
+
+python train.py --model treepath ../resources/saved_models ../resources/data/python/final/jsonl/train ../resources/data/python/final/jsonl/valid ../resources/data/python/final/jsonl/test
 
 python predict.py -r jianguda/CodeSearchNet/01234567
 
-python train.py --model treeraw ../resources/saved_models
+<!-- python train.py --model treeraw ../resources/saved_models -->
 
 # verify your setup by training a tiny model
 

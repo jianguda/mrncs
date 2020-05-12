@@ -134,7 +134,7 @@ Evaluating language: python
 Uploading predictions to W&B
 NDCG Average: 0.255463245
 
-# (normal)(non-len1-word)
+# (normal)(non-len1-words)
 
 Epoch 13 (valid) took 1.40s [processed 16470 samples/second]
 Validation: Loss: 1.064329 | MRR: 0.470671
@@ -201,7 +201,7 @@ Evaluating language: python
 Uploading predictions to W&B
 NDCG Average: 0.314850832
 
-# (normal)(non-len2-word)
+# (normal)(non-len2-words)
 
 Epoch 13 (valid) took 1.41s [processed 16271 samples/second]
 Validation: Loss: 1.064445 | MRR: 0.470010
@@ -268,7 +268,7 @@ Evaluating language: python
 Uploading predictions to W&B
 NDCG Average: 0.250727438
 
-# (normal)(non-len3-word)
+# (normal)(non-len3-words)
 
 Epoch 12 (valid) took 1.44s [processed 15943 samples/second]
 Validation: Loss: 1.073981 | MRR: 0.448111
@@ -824,7 +824,7 @@ Evaluating language: python
 Uploading predictions to W&B
 NDCG Average: 0.285133542
 
-# (normal)(non-len1-word&non-stop-words)
+# (normal)(non-len1-words&non-stop-words)
 
 Epoch 25 (valid) took 1.46s [processed 15739 samples/second]
 Validation: Loss: 1.063523 | MRR: 0.471258
