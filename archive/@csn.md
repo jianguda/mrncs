@@ -55,7 +55,7 @@ script/console
 
 # switch the working dir from src to code
 
-pip install nltk tree_sitter
+pip install nltk tree_sitter scikit-learn
 
 cd ../code/
 

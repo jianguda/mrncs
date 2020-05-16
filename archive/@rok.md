@@ -10,19 +10,20 @@ scp jian@52.142.194.25:/datadrive/csn/parser/build/csn-languages.so ./
 
 # sync my code
 
-sudo rm -rf /datadrive/rok
+sudo rm -rf /datadrive/core
 
 <!-- cp -r CodeSearchNet/src CodeSearchNet/code -->
 
 # scp terminal
 
-`scp -r rok jian@40.112.67.232:/datadrive/`
+`scp -r core jian@40.112.67.232:/datadrive/`
 `Yc912300////`
 
 # ssh terminal
 
-rm -rf codesnippetsearch/better
-cp -rf rok/better codesnippetsearch/better
+cd /datadrive
+rm -rf codesnippetsearch/rok
+cp -rf core/rok codesnippetsearch/rok
 
 <!-- cp -rf code/. CodeSearchNet/code -->
 
@@ -41,8 +42,6 @@ cd /datadrive/codesnippetsearch/
 # download data (~3.5GB) from S3; build and run the Docker container
 
 `script/setup`
-
-# !!!
 
 # enter screen
 
@@ -74,27 +73,27 @@ source env/bin/activate
 <!-- cd /datadrive/codesnippetsearch/
 gzip -kdr resources/data -->
 
-<!-- cd /datadrive/codesnippetsearch/code_search
-<!-- cd /datadrive/codesnippetsearch/better
-python parse_dedupe_definitions.py go
-python parse_dedupe_definitions.py java
-python parse_dedupe_definitions.py javascript
-python parse_dedupe_definitions.py php
-python parse_dedupe_definitions.py python
-python parse_dedupe_definitions.py ruby
+<!-- cd /datadrive/codesnippetsearch/code_search -->
 
-python prepare_data.py --prepare-all -->
+<!-- cd /datadrive/codesnippetsearch/rok
+python3 prepare_data.py --prepare-all -->
 
 # train model
 
-<!-- cd better -->
+cd rok
+
 <!-- cd code_search -->
 
 python3 train_model.py
 
+# switch between siamese and raw
+
+vi shared.py
+:4
+
 <!-- python train.py --model treepath ../resources/saved_models ../resources/data/python/final/jsonl/train ../resources/data/python/final/jsonl/valid ../resources/data/python/final/jsonl/test -->
 
-python evaluate_model.py -r jianguda/CodeSearchNet/01234567
+python3 evaluate_model.py -r jianguda/CodeSearchNet/01234567
 
 # for different languages
 

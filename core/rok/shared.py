@@ -1,9 +1,11 @@
 from pathlib import Path
 from typing import Generator, Iterable
 
+SIAMESE_MODEL = True
+
 TokensGenerator = Generator[Iterable[str], None, None]
 
-ROOT_DIR = Path.cwd().parent.parent
+ROOT_DIR = Path.cwd().parent
 MODELS_CACHE_DIR = ROOT_DIR / 'cache' / 'models'
 SEQS_CACHE_DIR = ROOT_DIR / 'cache' / 'seqs'
 VOCABULARIES_CACHE_DIR = ROOT_DIR / 'cache' / 'vocabularies'
@@ -20,11 +22,11 @@ ANN_CACHE_FILENAME = '{language}.ann'
 
 LANGUAGES_NUM_FILES = {
     'python': 14,
-    'ruby': 2,
-    'php': 18,
-    'go': 11,
-    'javascript': 5,
-    'java': 16,
+    # 'ruby': 2,
+    # 'php': 18,
+    # 'go': 11,
+    # 'javascript': 5,
+    # 'java': 16,
 }
 LANGUAGES = list(sorted(LANGUAGES_NUM_FILES.keys()))
 DATA_SETS = ['train', 'valid', 'test']
@@ -38,19 +40,24 @@ FUNC_NAME_AS_QUERY_PCT = 0.1
 MIN_FUNC_NAME_QUERY_LENGTH = 12
 VOCABULARY_PCT_BPE = 0.5
 
+CODE_MAX_SEQ_LENGTH = 30 if SIAMESE_MODEL else 200
 CODE_VOCABULARY_SIZE = 10000
 CODE_TOKEN_COUNT_THRESHOLD = 10
-CODE_MAX_SEQ_LENGTH = 200
 
+QUERY_MAX_SEQ_LENGTH = 30
 QUERY_VOCABULARY_SIZE = 10000
 QUERY_TOKEN_COUNT_THRESHOLD = 10
-QUERY_MAX_SEQ_LENGTH = 30
+
+SIAMESE_MAX_SEQ_LENGTH = 30
+SIAMESE_VOCABULARY_SIZE = 10000
 
 ENV = {
     "RESOURCES_DIR": "/datadrive/codesnippetsearch/resources/",
     "DATA_DIR": "/datadrive/codesnippetsearch/resources/data/",
 }
 
+RATE_DROP_DENSE = 0.25
+NUMBER_DENSE_UNITS = 256
 
 CONFIG = {
     'learning_rate': LEARNING_RATE,
@@ -65,4 +72,7 @@ CONFIG = {
     'query_vocabulary_size': QUERY_VOCABULARY_SIZE,
     'query_token_count_threshold': QUERY_TOKEN_COUNT_THRESHOLD,
     'query_max_seq_length': QUERY_MAX_SEQ_LENGTH,
+
+    'rate_drop_dense': RATE_DROP_DENSE,
+    'number_dense_units': NUMBER_DENSE_UNITS
 }

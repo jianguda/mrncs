@@ -10,3 +10,4 @@ spacy==2.2.4
 tensorflow==2.1.0
 tqdm==4.45.0
 wandb==0.8.32
+tree_sitter

@@ -57,6 +57,12 @@ Overall, NBOW << CNN ≈ RNN < BERT.
 
 ## extensions
 
+|       Model        | MRR (Python) | NDCG (Python) | MRR (all) | NDCG (all) |
+| :----------------: | :----------: | :-----------: | --------- | ---------- |
+|        NBoW        |    0.638     |     0.292     | 0.571     | 0.220      |
+| NBoW-Preprocessing |    0.643     |     0.312     | -         | -          |
+|      NBoW-KNN      |    0.643     |   **0.499**   | 0.620     | **0.370**  |
+
 <!-- **based on leaf-token data, train over Python and predict over Python**
 
 RNN is used as the query encoder
@@ -101,7 +107,7 @@ because NBOW is the best baseline model, we make improvements on the NBOW model.
 |               Model                |  MRR  |   NDCG    |
 | :--------------------------------: | :---: | :-------: |
 |                raw                 | 0.638 |   0.292   |
-|         raw-preprocessing          | 0.636 | **0.315** |
+|         raw-preprocessing          | 0.643 | **0.312** |
 |                leaf                | 0.620 |   0.267   |
 | leaf-preprocessing(non-len1-words) | 0.616 |   0.242   |
 | leaf-preprocessing(non-stop-words) | 0.612 |   0.259   |
@@ -136,12 +142,13 @@ because NBOW is the best baseline model, we make improvements on the NBOW model.
 
 **NBOW train over Python and predict over Python**
 
-|      Model      |    MRR    |   NDCG    | time (hours) |
-| :-------------: | :-------: | :-------: | :----------: |
-|  raw(softmax)   |   0.582   |   0.173   |    0.360     |
-|   raw(cosine)   | **0.638** | **0.292** |    0.365     |
-| raw(max-margin) |   0.583   |   0.176   |    0.355     |
-|  raw(triplet)   |   0.611   |   0.266   |    1.603     |
+|       Model       |    MRR    |   NDCG    | time (hours) |
+| :---------------: | :-------: | :-------: | :----------: |
+|   raw(softmax)    |   0.582   |   0.173   |    0.360     |
+| raw(cosine-annoy) | **0.638** | **0.292** |    0.365     |
+|  raw(cosine-KNN)  | **0.643** | **0.499** |    0.403     |
+|  raw(max-margin)  |   0.583   |   0.176   |    0.355     |
+|   raw(triplet)    |   0.611   |   0.266   |    1.603     |
 
 <!-- |   CNN(cosine)   |   0.008   |   0.042   |    1.025     |
 |   RNN(cosine)   |   0.008   |   0.066   |    2.117     |
@@ -163,9 +170,31 @@ because NBOW is the best baseline model, we make improvements on the NBOW model.
 |   treepath(HST+U2D)    |   -   |   -   |
 |   treepath(HPT+U2D)    |   -   |   -   |
 |  code2vec(leaf+path)   |   -   |   -   |
-| multi-modal(leaf+path) |   -   |   -   |
+| multi-modal(leaf+path) |  ...  |  ...  |
 
 **conclusion** ...
+
+## start from Rok
+
+|    Model     | MRR (Python) | NDCG (Python) | MRR (all) | NDCG (all) |
+| :----------: | :----------: | :-----------: | --------- | ---------- |
+|   vanilla    |    0.637     |     0.437     | 0.696     | 0.287      |
+| siamese-code |    0.008     |     0.000     | -         | -          |
+| siamese-leaf |    0.008     |     0.000     | -         | -          |
+
+## index
+
+annoy: approximate nearest neighbor
+KNN: exact nearest neighbor
+
+|      Model       |    MRR    |   NDCG    |
+| :--------------: | :-------: | :-------: |
+|   nbow(annoy)    | **0.638** | **0.292** |
+|    nbow(KNN)     | **0.643** | **0.499** |
+| rok(annoy) - 128 |     -     |   0.218   |
+|  rok(KNN) - 128  |     -     |   0.409   |
+| rok(annoy) - 256 |     -     |   0.184   |
+|  rok(KNN) - 256  |     -     |   0.426   |
 
 ## dataset
 
@@ -196,7 +225,7 @@ The number of functions (code snippets along with documents) used for training/v
 - **models** ...
 - **scripts** scripts for generating ASTs, Paths and Graphs
 
-**code2** the "devout-resonance-31" model by Rok Novosel https://github.com/novoselrok/codesnippetsearch
+**core** the "devout-resonance-31" model by Rok Novosel https://github.com/novoselrok/codesnippetsearch
 
 - **rok**: changes to the original **code_search** (process data, train models and cache embeddings)
 ```

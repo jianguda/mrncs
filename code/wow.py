@@ -14,7 +14,6 @@ if __name__ == '__main__':
     #  todo multi-modal (semantic info + syntactic info) + attention (and FC or extra abstract layers)
     #  todo metric learning / loss function (Siamese NN) Deep Metric Learning: A Survey
     #  todo CAT https://arxiv.org/abs/2005.06980
-    #  todo  multi-lang ? in Rok's "devout-resonance-31"
     # JGD why Rok
     #  They say "We are using BPE encoding to encode both code strings and query strings". The string padding and cosine loss is also interesting to look deeper at.
     # ​ SGTM, just make sure that you can make them all into one "story" and have a red thread between them.

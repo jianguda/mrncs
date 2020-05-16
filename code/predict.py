@@ -54,6 +54,7 @@ import shutil
 import sys
 
 from annoy import AnnoyIndex
+from sklearn.neighbors import NearestNeighbors
 from docopt import docopt
 from dpu_utils.utils import RichPath
 import pandas as pd
@@ -111,7 +112,7 @@ if __name__ == '__main__':
         path=model_path,
         is_train=False,
         hyper_overrides={})
-    
+
     predictions = []
     for language in ('python', 'go', 'javascript', 'java', 'php', 'ruby'):
         print("Evaluating language: %s" % language)
@@ -121,15 +122,36 @@ if __name__ == '__main__':
         indexes = [{'code': d['function'], 'code_tokens': d['function_tokens'], 'language': d['language']} for d in tqdm(definitions)]
         code_representations = model.get_code_representations(indexes)
 
-        indices = AnnoyIndex(code_representations[0].shape[0], 'angular')
-        for index, vector in tqdm(enumerate(code_representations)):
-            if vector is not None:
-                indices.add_item(index, vector)
-        indices.build(10)
-
+        # use KNN
+        query_embeddings = []
         for query in queries:
-            for idx, _ in zip(*query_model(query, model, indices, language)):
-                predictions.append((query, language, definitions[idx]['identifier'], definitions[idx]['url']))
+            query_embedding = model.get_query_representations([{'docstring_tokens': tokenize_docstring_from_string(query),
+                                                                'language': language}])[0]
+            query_embeddings.append(query_embedding)
+
+        nn = NearestNeighbors(n_neighbors=100, metric='cosine', n_jobs=-1)
+        nn.fit(code_representations)
+        _, nearest_neighbor_indices = nn.kneighbors(query_embeddings)
+
+        for query_idx, query in enumerate(queries):
+            for query_nearest_code_idx in nearest_neighbor_indices[query_idx, :]:
+                predictions.append({
+                    'query': query,
+                    'language': language,
+                    'identifier': definitions[query_nearest_code_idx]['identifier'],
+                    'url': definitions[query_nearest_code_idx]['url'],
+                })
+
+        # use annoy
+        # indices = AnnoyIndex(code_representations[0].shape[0], 'angular')
+        # for index, vector in tqdm(enumerate(code_representations)):
+        #     if vector is not None:
+        #         indices.add_item(index, vector)
+        # indices.build(10)
+        #
+        # for query in queries:
+        #     for idx, _ in zip(*query_model(query, model, indices, language)):
+        #         predictions.append((query, language, definitions[idx]['identifier'], definitions[idx]['url']))
         # JGD only predict over Python
         break
 

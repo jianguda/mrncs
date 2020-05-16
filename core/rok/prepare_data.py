@@ -12,6 +12,7 @@ from spacy.lang.en.stop_words import STOP_WORDS
 
 from rok import shared, utils
 from rok.bpevocabulary import BpeVocabulary, DEFAULT_UNK
+from rok.ts import code2identifiers
 
 np.random.seed(0)
 
@@ -55,10 +56,17 @@ def extract_doc(raw_doc, use_func_name_as_query=False):
     if is_func_name_as_query:
         query_tokens = extract_sub_tokens(func_name)
         # Replace function name occurrences in code
-        code_tokens = [token if token != func_name else DEFAULT_UNK for token in raw_doc['code_tokens']]
+        if shared.SIAMESE_MODEL:
+            code_tokens = code2identifiers(raw_doc['code'], raw_doc['language'])
+        else:
+            code_tokens = raw_doc['code_tokens']
+        code_tokens = [token if token != func_name else DEFAULT_UNK for token in code_tokens]
     else:
         query_tokens = raw_doc['docstring_tokens']
-        code_tokens = raw_doc['code_tokens']
+        if shared.SIAMESE_MODEL:
+            code_tokens = code2identifiers(raw_doc['code'], raw_doc['language'])
+        else:
+            code_tokens = raw_doc['code_tokens']
 
     return {
         'func_name': func_name,
@@ -69,7 +77,7 @@ def extract_doc(raw_doc, use_func_name_as_query=False):
     }
 
 
-def prepare_set_docs(args):
+def prepare_corpus_docs(args):
     language, set_ = args
     print(f'Building docs for {language} {set_}')
 
@@ -82,7 +90,7 @@ def prepare_set_docs(args):
 
 def prepare_docs():
     with Pool(8) as p:
-        p.map(prepare_set_docs, itertools.product(shared.LANGUAGES, shared.DATA_SETS))
+        p.map(prepare_corpus_docs, itertools.product(shared.LANGUAGES, shared.DATA_SETS))
 
 
 def prepare_language_vocabulary(args):
@@ -137,7 +145,7 @@ def pad_encode_query(query: str, language: str) -> np.ndarray:
     return np.array(list(encoded_seq)[0])
 
 
-def prepare_set_seqs(args):
+def prepare_corpus_seqs(args):
     language, set_ = args
     print(f'Building sequences for {language} {set_}')
 
@@ -165,7 +173,10 @@ def prepare_evaluation_seqs(language):
     print(f'Building evaluation sequences for {language}')
 
     evaluation_docs = utils.load_cached_docs(language, 'evaluation')
-    evaluation_code_seqs = (doc['function_tokens'] for doc in evaluation_docs)
+    if shared.SIAMESE_MODEL:
+        evaluation_code_seqs = (code2identifiers(doc['function'], language) for doc in evaluation_docs)
+    else:
+        evaluation_code_seqs = (doc['function_tokens'] for doc in evaluation_docs)
 
     evaluation_padded_encoded_code_seqs = pad_encode_seqs(
         preprocess_code_tokens, evaluation_code_seqs, shared.CODE_MAX_SEQ_LENGTH, language, 'code')
@@ -180,7 +191,7 @@ def prepare_evaluation_seqs(language):
 
 def prepare_seqs():
     with Pool(4) as p:
-        p.map(prepare_set_seqs, itertools.product(shared.LANGUAGES, shared.DATA_SETS))
+        p.map(prepare_corpus_seqs, itertools.product(shared.LANGUAGES, shared.DATA_SETS))
 
     with Pool(2) as p:
         p.map(prepare_evaluation_seqs, shared.LANGUAGES)

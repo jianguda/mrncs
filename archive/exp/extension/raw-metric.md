@@ -260,6 +260,54 @@ totalMemory: 11.17GiB freeMemory: 11.11GiB
 Uploading predictions to W&B
 NDCG Average: 0.266458079
 
+# row-KNN
+
+Epoch 15 (valid) took 1.48s [processed 15495 samples/second]
+Validation: Loss: 1.063652 | MRR: 0.471070
+2020-05-18 20:41:13.980681: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
+2020-05-18 20:41:13.980737: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
+2020-05-18 20:41:13.980752: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988] 0
+2020-05-18 20:41:13.980763: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0: N
+2020-05-18 20:41:13.980845: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 10761 MB memory) -> physical GPU (device: 0, name: Tesla K80, pci bus id: 3476:00:00.0, compute capability: 3.7)
+Test-All MRR (bs=1,000): 0.643
+FuncNameTest-All MRR (bs=1,000): 0.521
+Validation-All MRR (bs=1,000): 0.611
+Test-python MRR (bs=1,000): 0.643
+FuncNameTest-python MRR (bs=1,000): 0.521
+Validation-python MRR (bs=1,000): 0.611
+
+wandb: Waiting for W&B process to finish, PID 54
+wandb: Program ended successfully.
+wandb: Run summary:
+wandb: train-loss 0.8772346663822248
+wandb: train-mrr 0.8472810202293025
+wandb: \_runtime 1449.498173713684
+wandb: \_step 101
+wandb: \_timestamp 1589834585.2846868
+wandb: val-mrr 0.4710700471297554
+wandb: epoch 15
+wandb: train-time-sec 40.00382852554321
+wandb: val-loss 1.0636521215024202
+wandb: val-time-sec 1.4842910766601562
+wandb: best_val_mrr_loss 1.0633603697237761
+wandb: best_val_mrr 0.4724775390625
+wandb: best_epoch 10
+wandb: Test-All MRR (bs=1,000) 0.6428236145615925
+wandb: FuncNameTest-All MRR (bs=1,000) 0.520749357434897
+wandb: Validation-All MRR (bs=1,000) 0.6111837302175785
+wandb: Test-python MRR (bs=1,000) 0.6428236145615925
+wandb: FuncNameTest-python MRR (bs=1,000) 0.520749357434897
+wandb: Validation-python MRR (bs=1,000) 0.6111837302175785
+wandb: Syncing files in wandb/run-20200518_201857-8y9ixqz5:
+wandb: treeraw-2020-05-18-20-18-57-graph.pbtxt
+wandb: treeraw-2020-05-18-20-18-57.train_log
+wandb: treeraw-2020-05-18-20-18-57_model_best.pkl.gz
+wandb: plus 9 W&B file(s) and 0 media file(s)
+wandb:
+wandb: Synced treeraw-2020-05-18-20-18-57: https://app.wandb.ai/jianguda/CodeSearchNet/runs/8y9ixqz5
+root@jian-csn:/home/dev/code# python predict.py -r jianguda/CodeSearchNet/8y9ixqz5
+NDCG Average: 0.499120563
+
 # CNN-cosine
 
 Epoch 12 (valid) took 3.93s [processed 5849 samples/second]
