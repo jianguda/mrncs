@@ -1,105 +1,48 @@
-import argparse
 import random
 
 import numpy as np
 import tensorflow as tf
-import wandb
-from keras.engine import Layer
-from keras import backend
-from keras.callbacks import EarlyStopping
-from keras.layers import Embedding, Input, Lambda
-from keras.models import Model
-from keras.optimizers import Adam, Nadam
+from tensorflow.keras import backend
+from tensorflow.keras.layers import Embedding, Input, Lambda, Layer
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Nadam
 from wandb.keras import WandbCallback
 
-from rok import evaluate_model, utils
-from rok import shared
-
-np.random.seed(0)
-random.seed(0)
+from rok import evaluate_model, utils, shared
 
 
-class MrrEarlyStopping(EarlyStopping):
-    def __init__(self,
-                 padded_encoded_code_validation_seqs,
-                 padded_encoded_query_validation_seqs,
-                 patience=5,
-                 batch_size=1000):
-        super().__init__(monitor='val_mrr', mode='max', restore_best_weights=True, verbose=True, patience=patience)
-        self.padded_encoded_code_validation_seqs = padded_encoded_code_validation_seqs
-        self.padded_encoded_query_validation_seqs = padded_encoded_query_validation_seqs
-        self.batch_size = batch_size
-
-    def on_epoch_end(self, epoch, logs=None):
-        logs = logs or {}
-
-        mean_mrr = evaluate_model.evaluate_model_mean_mrr(
-            self.model,
-            self.padded_encoded_code_validation_seqs,
-            self.padded_encoded_query_validation_seqs,
-            batch_size=self.batch_size)
-
-        print('Mean MRR:', mean_mrr)
-        super().on_epoch_end(epoch, {**logs, 'val_mrr': mean_mrr})
-
-
-def get_code_input_and_embedding_layer():
-    code_input = Input(shape=(shared.CODE_MAX_SEQ_LENGTH,), name='code_input')
-    code_embedding = Embedding(
-        input_length=shared.CODE_MAX_SEQ_LENGTH,
-        input_dim=shared.CODE_VOCABULARY_SIZE,
+def get_embedding_layer(data_type: str):
+    input_length = shared.CODE_MAX_SEQ_LEN if data_type == 'code' else shared.QUERY_MAX_SEQ_LEN
+    inputs = Input(shape=(input_length,), name=f'{data_type}_input')
+    embeddings = Embedding(
+        input_length=shared.QUERY_MAX_SEQ_LEN,
+        input_dim=shared.VOCAB_SIZE,
         output_dim=shared.EMBEDDING_SIZE,
-        name='code_embedding',
-        mask_zero=True)(code_input)
-    code_embedding = ZeroMaskedEntries()(code_embedding)
-    code_embedding = Lambda(
-        mask_aware_mean, mask_aware_mean_output_shape, name='code_embedding_mean')(code_embedding)
+        name=f'{data_type}_embedding',
+        mask_zero=True)(inputs)
+    embeddings = ZeroMaskedEntries()(embeddings)
+    embeddings = Lambda(
+        mask_aware_mean, mask_aware_mean_output_shape, name=f'{data_type}_embedding_mean')(embeddings)
 
-    return code_input, code_embedding
-
-
-def get_query_input_and_embedding_layer():
-    query_input = Input(shape=(shared.QUERY_MAX_SEQ_LENGTH,), name='query_input')
-    query_embedding = Embedding(
-        input_length=shared.QUERY_MAX_SEQ_LENGTH,
-        input_dim=shared.QUERY_VOCABULARY_SIZE,
-        output_dim=shared.EMBEDDING_SIZE,
-        name='query_embedding',
-        mask_zero=True)(query_input)
-    query_embedding = ZeroMaskedEntries()(query_embedding)
-    query_embedding = Lambda(
-        mask_aware_mean, mask_aware_mean_output_shape, name='query_embedding_mean')(query_embedding)
-
-    return query_input, query_embedding
+    return inputs, embeddings
 
 
-def get_code_embedding_predictor(model):
-    if shared.SIAMESE_MODEL:
+def get_embedding_predictor(model, data_type: str):
+    if shared.SIAMESE:
         base_model = model.get_layer('base_model')
-        code_input = base_model.get_layer('siamese_input').input
-        code_output = base_model.get_layer('siamese_embedding_mean').output
+        inputs = base_model.get_layer('siamese_input').input
+        outputs = base_model.get_layer('siamese_embedding_mean').output
     else:
-        code_input = model.get_layer('code_input').input
-        code_output = model.get_layer('code_embedding_mean').output
-    return Model(inputs=code_input, outputs=code_output)
-
-
-def get_query_embedding_predictor(model):
-    if shared.SIAMESE_MODEL:
-        base_model = model.get_layer('base_model')
-        query_input = base_model.get_layer('siamese_input').input
-        query_output = base_model.get_layer('siamese_embedding_mean').output
-    else:
-        query_input = model.get_layer('query_input').input
-        query_output = model.get_layer('query_embedding_mean').output
-    return Model(inputs=query_input, outputs=query_output)
+        inputs = model.get_layer(f'{data_type}_input').input
+        outputs = model.get_layer(f'{data_type}_embedding_mean').output
+    return Model(inputs=inputs, outputs=outputs)
 
 
 def get_siamese_base_model(input_shape) -> Model:
     siamese_input = Input(shape=input_shape, name='siamese_input')
     siamese_embedding = Embedding(
-        input_length=shared.SIAMESE_MAX_SEQ_LENGTH,
-        input_dim=shared.SIAMESE_VOCABULARY_SIZE,
+        input_length=shared.SIAMESE_MAX_SEQ_LEN,
+        input_dim=shared.VOCAB_SIZE,
         output_dim=shared.EMBEDDING_SIZE,
         name='siamese_embedding',
         mask_zero=True)(siamese_input)
@@ -107,7 +50,9 @@ def get_siamese_base_model(input_shape) -> Model:
     siamese_embedding = Lambda(
         mask_aware_mean, mask_aware_mean_output_shape, name='siamese_embedding_mean'
     )(siamese_embedding)
-    siamese_base_model = Model(inputs=siamese_input, outputs=siamese_embedding, name='base_model')
+    siamese_base_model = Model(
+        inputs=siamese_input, outputs=siamese_embedding, name='base_model'
+    )
     return siamese_base_model
 
 
@@ -118,25 +63,25 @@ def get_siamese_head_model(embedding_shape) -> Model:
         [code_embedding, query_embedding]
     )
 
-    siamese_head_model = Model(inputs=[code_embedding, query_embedding], outputs=siamese_score, name='head_model')
+    siamese_head_model = Model(
+        inputs=[code_embedding, query_embedding], outputs=siamese_score, name='head_model')
     return siamese_head_model
 
 
 def get_siamese_model() -> Model:
     # https://github.com/aspamers/siamese
     # https://keras.io/examples/mnist_siamese/
-    input_shape = (shared.SIAMESE_MAX_SEQ_LENGTH,)
+    input_shape = (shared.SIAMESE_MAX_SEQ_LEN,)
     siamese_base_model = get_siamese_base_model(input_shape)
     siamese_head_model = get_siamese_head_model(siamese_base_model.output_shape)
 
-    code_input = Input(shape=(shared.SIAMESE_MAX_SEQ_LENGTH,), name='code_input')
-    query_input = Input(shape=(shared.SIAMESE_MAX_SEQ_LENGTH,), name='query_input')
+    code_input = Input(shape=input_shape, name='code_input')
+    query_input = Input(shape=input_shape, name='query_input')
     code_embedding = siamese_base_model(code_input)
     query_embedding = siamese_base_model(query_input)
     siamese_score = siamese_head_model([code_embedding, query_embedding])
 
     siamese_model = Model(inputs=[code_input, query_input], outputs=siamese_score)
-    # siamese_model.compile(optimizer=Adam(learning_rate=shared.LEARNING_RATE), loss=cosine_loss)
     siamese_model.compile(optimizer=Nadam(), loss=cosine_loss)
     return siamese_model
 
@@ -210,19 +155,19 @@ def cosine_loss(_, cosine_similarity_matrix):
 
 
 def get_vanilla_model() -> Model:
-    code_input, code_embedding = get_code_input_and_embedding_layer()
-    query_input, query_embedding = get_query_input_and_embedding_layer()
+    code_input, code_embedding = get_embedding_layer('code')
+    query_input, query_embedding = get_embedding_layer('query')
     merge_layer = Lambda(cosine_similarity, name='cosine_similarity')(
         [code_embedding, query_embedding]
     )
 
     model = Model(inputs=[code_input, query_input], outputs=merge_layer)
-    model.compile(optimizer=Adam(learning_rate=shared.LEARNING_RATE), loss=cosine_loss)
+    model.compile(optimizer=Nadam(), loss=cosine_loss)
     return model
 
 
 def get_model() -> Model:
-    if shared.SIAMESE_MODEL:
+    if shared.SIAMESE:
         model = get_siamese_model()
     else:
         model = get_vanilla_model()
@@ -251,62 +196,6 @@ def generate_batch(padded_encoded_code_seqs, padded_encoded_query_seqs, batch_si
             idx = 0
 
 
-def train(language, model_callbacks, verbose=True):
-    model = get_model()
-
-    train_code_seqs = utils.load_cached_seqs(language, 'train', 'code')
-    train_query_seqs = utils.load_cached_seqs(language, 'train', 'query')
-
-    valid_code_seqs = utils.load_cached_seqs(language, 'valid', 'code')
-    valid_query_seqs = utils.load_cached_seqs(language, 'valid', 'query')
-
-    num_samples = train_code_seqs.shape[0]
-    if shared.SIAMESE_MODEL:
-        model.fit_generator(
-            generate_siamese_batch(train_code_seqs, train_query_seqs, batch_size=shared.TRAIN_BATCH_SIZE),
-            epochs=200,
-            steps_per_epoch=num_samples // shared.TRAIN_BATCH_SIZE,
-            verbose=2 if verbose else -1,
-            callbacks=[
-                MrrEarlyStopping(valid_code_seqs, valid_query_seqs, patience=5)
-            ] + model_callbacks
-        )
-    else:
-        model.fit_generator(
-            generate_batch(train_code_seqs, train_query_seqs, batch_size=shared.TRAIN_BATCH_SIZE),
-            epochs=200,
-            steps_per_epoch=num_samples // shared.TRAIN_BATCH_SIZE,
-            verbose=2 if verbose else -1,
-            callbacks=[
-                MrrEarlyStopping(valid_code_seqs, valid_query_seqs, patience=5)
-            ] + model_callbacks
-        )
-
-    model.save(utils.get_cached_model_path(language))
-
-
-def main():
-    parser = argparse.ArgumentParser(description='Train individual language models from prepared data.')
-    parser.add_argument('--notes', default='')
-    utils.add_bool_arg(parser, 'wandb', default=True)
-    utils.add_bool_arg(parser, 'evaluate', default=True)
-    args = vars(parser.parse_args())
-
-    if args['wandb']:
-        wandb.init(project='CodeSearchNet', notes=args['notes'], config=shared.CONFIG)
-        additional_callbacks = [WandbCallback(monitor='val_loss', save_model=False)]
-    else:
-        additional_callbacks = []
-
-    for language in shared.LANGUAGES:
-        print(f'Training {language}')
-        train(language, additional_callbacks)
-
-    if args['evaluate']:
-        evaluate_model.evaluate_mean_mrr(args['wandb'])
-        evaluate_model.emit_ndcg_model_predictions(args['wandb'])
-
-
 class ZeroMaskedEntries(Layer):
     def __init__(self, **kwargs):
         self.support_mask = True
@@ -329,10 +218,8 @@ class ZeroMaskedEntries(Layer):
 def mask_aware_mean(x):
     # recreate the masks - all zero rows have been masked
     mask = backend.not_equal(backend.sum(backend.abs(x), axis=2, keepdims=True), 0)
-
     # number of that rows are not all zeros
     n = backend.sum(backend.cast(mask, 'float32'), axis=1, keepdims=False)
-
     # compute mask-aware mean of x
     x_mean = backend.sum(x, axis=1, keepdims=False) / n
 
@@ -345,5 +232,26 @@ def mask_aware_mean_output_shape(input_shape):
     return shape[0], shape[2]
 
 
-if __name__ == '__main__':
-    main()
+def training(language, verbose=True):
+    model = get_model()
+
+    train_code_seqs = utils.load_seqs(language, 'train', 'code')
+    train_query_seqs = utils.load_seqs(language, 'train', 'query')
+    valid_code_seqs = utils.load_seqs(language, 'valid', 'code')
+    valid_query_seqs = utils.load_seqs(language, 'valid', 'query')
+
+    num_samples = train_code_seqs.shape[0]
+    if shared.SIAMESE:
+        batch_generator = generate_siamese_batch(train_code_seqs, train_query_seqs, batch_size=shared.BATCH_SIZE)
+    else:
+        batch_generator = generate_batch(train_code_seqs, train_query_seqs, batch_size=shared.BATCH_SIZE)
+
+    additional_callback = [WandbCallback(monitor='val_loss', save_model=False)] if shared.WANDB else []
+    model.fit(
+        batch_generator, epochs=200,
+        steps_per_epoch=num_samples // shared.BATCH_SIZE,
+        verbose=2 if verbose else -1,
+        callbacks=[evaluate_model.MrrEarlyStopping(valid_code_seqs, valid_query_seqs)] + additional_callback
+    )
+
+    utils.save_model(language, model)

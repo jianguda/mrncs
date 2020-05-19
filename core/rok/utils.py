@@ -1,27 +1,16 @@
-import pickle
-import json
 import itertools
+import json
+import pickle
 from pathlib import Path
-from typing import Iterable, TypeVar
+from typing import Iterable
 
 import numpy as np
-from annoy import AnnoyIndex
 
 from rok import shared
 from rok.bpevocabulary import BpeVocabulary
 
 
-T = TypeVar('T')
-
-
-def add_bool_arg(parser, name, default=False):
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument('--' + name, dest=name, action='store_true')
-    group.add_argument('--no-' + name, dest=name, action='store_false')
-    parser.set_defaults(**{name: default})
-
-
-def flatten(iterable: Iterable[Iterable[T]]) -> Iterable[T]:
+def flatten(iterable: Iterable[Iterable[str]]) -> Iterable[str]:
     return itertools.chain.from_iterable(iterable)
 
 
@@ -37,105 +26,100 @@ def write_jsonl(iterable, file_path: str):
             f.write(json.dumps(item) + '\n')
 
 
-def load_pickled_object(serialize_path: str):
-    with open(serialize_path, 'rb') as f:
-        return pickle.load(f)
-
-
-def pickle_object(obj, serialize_path):
+def dump_pickle(obj, serialize_path):
     with open(serialize_path, 'wb') as f:
         pickle.dump(obj, f)
 
 
-def get_raw_doc_path(language: str, set_: str, idx: int) -> str:
-    return Path(shared.ENV['DATA_DIR']) / language / 'final' / 'jsonl' / set_ / f'{language}_{set_}_{idx}.jsonl'
+def load_pickle(serialize_path: str):
+    with open(serialize_path, 'rb') as f:
+        return pickle.load(f)
 
 
-def get_evaluation_queries():
-    with open(Path(shared.ENV['RESOURCES_DIR']) / 'queries.csv', encoding='utf-8') as f:
-        return [line.strip() for line in f.readlines()[1:]]
+def get_csn_corpus_path(language: str, data_set: str, idx: int) -> str:
+    return Path(shared.DATA_DIR) / language / 'final' / 'jsonl' / data_set / f'{language}_{data_set}_{idx}.jsonl'
 
 
-def get_raw_docs(language: str, set_: str):
-    if set_ == 'train':
-        file_paths = [get_raw_doc_path(language, set_, i) for i in range(shared.LANGUAGES_NUM_FILES[language])]
+def get_csn_corpus(language: str, data_set: str):
+    if data_set == 'train':
+        file_paths = [get_csn_corpus_path(language, data_set, idx) for idx in range(shared.CORPUS_FILES[language])]
     else:
-        file_paths = [get_raw_doc_path(language, set_, 0)]
+        file_paths = [get_csn_corpus_path(language, data_set, 0)]
 
     for file_path in file_paths:
         yield from iter_jsonl(file_path)
 
 
-def get_cached_seqs_path(language: str, set_: str, type_: str) -> str:
-    return Path(shared.SEQS_CACHE_DIR) / shared.SEQS_CACHE_FILENAME.format(language=language, set_=set_, type_=type_)
+def get_csn_queries():
+    with open(Path(shared.RESOURCES_DIR) / 'queries.csv', encoding='utf-8') as f:
+        return [line.strip() for line in f.readlines()[1:]]
 
 
-def load_cached_seqs(language: str, set_: str, type_: str) -> np.ndarray:
-    return np.load(get_cached_seqs_path(language, set_, type_))
+# docs
+def _get_docs_path(language: str, data_set: str):
+    return Path(shared.DOCS_DIR) / shared.DOCS_FILENAME.format(language=language, data_set=data_set)
 
 
-def cache_seqs(seqs: np.ndarray, language: str, set_: str, type_: str):
-    np.save(get_cached_seqs_path(language, set_, type_), seqs)
+def dump_docs(docs, language: str, data_set: str):
+    write_jsonl(docs, _get_docs_path(language=language, data_set=data_set))
 
 
-def get_cached_vocabulary_path(language: str, type_: str) -> str:
-    return Path(shared.VOCABULARIES_CACHE_DIR) / shared.VOCABULARY_CACHE_FILENAME.format(language=language, type_=type_)
+def load_docs(language: str, data_set: str):
+    return iter_jsonl(_get_docs_path(language=language, data_set=data_set))
 
 
-def cache_vocabulary(vocabulary: BpeVocabulary, language: str, type_: str):
-    pickle_object(vocabulary, get_cached_vocabulary_path(language, type_))
+# vocabs
+def _get_vocabs_path(language: str, data_type: str) -> str:
+    vocabs_cache_filename = shared.VOCABS_FILENAME.format(language=language, data_type=data_type)
+    return Path(shared.VOCABS_DIR) / vocabs_cache_filename
 
 
-def load_cached_vocabulary(language: str, type_: str) -> BpeVocabulary:
-    return load_pickled_object(get_cached_vocabulary_path(language, type_))
+def dump_vocabs(vocabulary: BpeVocabulary, language: str, data_type: str):
+    dump_pickle(vocabulary, _get_vocabs_path(language=language, data_type=data_type))
 
 
-def get_cached_docs_path(language: str, set_: str):
-    return Path(shared.DOCS_CACHE_DIR) / shared.DOCS_CACHE_FILENAME.format(language=language, set_=set_)
+def load_vocabs(language: str, data_type: str) -> BpeVocabulary:
+    return load_pickle(_get_vocabs_path(language=language, data_type=data_type))
 
 
-def cache_docs(docs, language: str, set_: str):
-    write_jsonl(docs, get_cached_docs_path(language, set_))
+# seqs
+def _get_seqs_path(language: str, data_set: str, data_type: str) -> str:
+    seqs_cache_filename = shared.SEQS_FILENAME.format(language=language, data_set=data_set, data_type=data_type)
+    return Path(shared.SEQS_DIR) / seqs_cache_filename
 
 
-def load_cached_docs(language: str, set_: str):
-    return iter_jsonl(get_cached_docs_path(language, set_))
+def dump_seqs(seqs: np.ndarray, language: str, data_set: str, data_type: str):
+    np.save(_get_seqs_path(language=language, data_set=data_set, data_type=data_type), seqs)
 
 
-def get_cached_code_embeddings_path(language: str):
-    return Path(shared.CODE_EMBEDDINGS_CACHE_DIR) / shared.CODE_EMBEDDINGS_CACHE_FILENAME.format(language=language)
+def load_seqs(language: str, data_set: str, data_type: str) -> np.ndarray:
+    return np.load(_get_seqs_path(language=language, data_set=data_set, data_type=data_type))
 
 
-def cache_code_embeddings(code_embeddings: np.ndarray, language: str):
-    np.save(get_cached_code_embeddings_path(language), code_embeddings)
+# models
+def _get_model_path(language: str) -> str:
+    models_filename = shared.MODELS_FILENAME.format(language=language)
+    return str(Path(shared.MODELS_DIR) / models_filename)
 
 
-def load_cached_code_embeddings(language: str):
-    return np.load(get_cached_code_embeddings_path(language))
+def save_model(language: str, model):
+    model.save(_get_model_path(language=language))
 
 
-def get_cached_model_path(language: str) -> str:
-    return Path(shared.MODELS_CACHE_DIR) / shared.MODEL_CACHE_FILENAME.format(language=language)
-
-
-def load_cached_model_weights(language: str, model):
-    model.load_weights(get_cached_model_path(language), by_name=True)
+def load_model(language: str, model):
+    model.load_weights(_get_model_path(language=language), by_name=True)
     return model
 
 
-def get_annoy_index():
-    return AnnoyIndex(shared.EMBEDDING_SIZE, 'angular')
+# embeddings
+def _get_embeddings_path(language: str, data_type: str):
+    embeddings_filename = shared.EMBEDDINGS_FILENAME.format(language=language, data_type=data_type)
+    return Path(shared.EMBEDDINGS_DIR) / embeddings_filename
 
 
-def get_cached_ann_path(language: str) -> str:
-    return Path(shared.ANNS_CACHE_DIR) / shared.ANN_CACHE_FILENAME.format(language=language)
+def dump_embeddings(code_embeddings: np.ndarray, language: str, data_type: str):
+    np.save(_get_embeddings_path(language=language, data_type=data_type), code_embeddings)
 
 
-def load_cached_ann(language: str) -> AnnoyIndex:
-    ann = get_annoy_index()
-    ann.load(get_cached_ann_path(language))
-    return ann
-
-
-def cache_ann(ann: AnnoyIndex, language: str):
-    ann.save(get_cached_ann_path(language))
+def load_embeddings(language: str, data_type: str):
+    return np.load(_get_embeddings_path(language=language, data_type=data_type))

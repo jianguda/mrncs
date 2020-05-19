@@ -84,7 +84,7 @@ cd rok
 
 <!-- cd code_search -->
 
-python3 train_model.py
+python3 run.py
 
 # switch between siamese and raw
 

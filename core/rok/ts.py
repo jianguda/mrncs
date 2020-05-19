@@ -64,7 +64,7 @@ class TS:
         self.path_style = path_style
         # Use the Language.build_library method to compile these
         # into a library that's usable from Python:
-        csn_so = 'rok/build/csn.so'
+        csn_so = 'build/csn.so'
         # Language.build_library(
         #   csn_so,
         #   [

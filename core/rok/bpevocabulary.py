@@ -9,31 +9,20 @@ import typing
 from typing import Optional, Dict, Iterable, List, Iterator
 from collections import Counter
 
-from rok import shared
-
-DEFAULT_EOW = '__eow'
-DEFAULT_SOW = '__sow'
-DEFAULT_UNK = '__unk'
-DEFAULT_PAD = '__pad'
-
 
 class BpeVocabulary(typing.Sized):
     """
     Encodes white-space separated text using byte-pair encoding.  See https://arxiv.org/abs/1508.07909 for details.
     """
-
     def __init__(self, vocab_size: int = 8192, pct_bpe: float = 0.2, ngram_min: int = 2, ngram_max: int = 8,
-                 required_tokens: Optional[Iterable[str]] = None, strict=True,
-                 EOW=DEFAULT_EOW, SOW=DEFAULT_SOW, UNK=DEFAULT_UNK, PAD=DEFAULT_PAD):
+                 required_tokens: Optional[Iterable[str]] = None, strict=True):
         if vocab_size < 1:
             raise ValueError('vocab size must be greater than 0.')
 
-        self.EOW = EOW
-        self.SOW = SOW
-        self.eow_len = len(EOW)
-        self.sow_len = len(SOW)
-        self.UNK = UNK
-        self.PAD = PAD
+        self.EOW = '__eow'
+        self.SOW = '__sow'
+        self.UNK = '__unk'
+        self.PAD = '__pad'
         self.required_tokens = list(set(required_tokens or []).union({self.UNK, self.PAD}))
         self.vocab_size = vocab_size
         self.pct_bpe = pct_bpe
@@ -139,7 +128,7 @@ class BpeVocabulary(typing.Sized):
         sw_tokens.append(self.EOW)
         return sw_tokens
 
-    def tokenize(self, word_tokens: List[str]) -> List[str]:
+    def tokenize(self, word_tokens: Iterable[str]) -> List[str]:
         """ Split a sentence into word and subword tokens """
 
         tokens = []
@@ -151,7 +140,7 @@ class BpeVocabulary(typing.Sized):
 
         return tokens
 
-    def transform(self, sentences: shared.TokensGenerator, reverse=False, fixed_length=None) -> Iterable[List[str]]:
+    def transform(self, sentences: Iterable[Iterable[str]], reverse=False, fixed_length=None) -> Iterable[List[str]]:
         """ Turns tokens into vocab idxs """
         direction = -1 if reverse else 1
         for sentence in sentences:
