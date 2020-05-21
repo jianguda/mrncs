@@ -555,7 +555,7 @@ class AlonModel:
     def process_dataset(self, *row_parts):
         row_parts = list(row_parts)
 
-        # all_contexts = tf.stack(row_parts)
+        # all_contexts = tf.concat(row_parts)
         # all_contexts_padded = tf.concat([all_contexts, [self.context_pad]], axis=-1)
         # index_of_blank_context = tf.where(tf.equal(all_contexts_padded, self.context_pad))
         # num_contexts_per_example = tf.reduce_min(index_of_blank_context)

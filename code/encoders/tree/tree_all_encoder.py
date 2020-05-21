@@ -19,7 +19,7 @@ class TreeAllEncoder(Encoder):
             embedding4path = self.treePathEncoder.make_model(is_train)
             embeddings.append(embedding4leaf)
             embeddings.append(embedding4path)
-            embeddings = tf.stack(embeddings, axis=0)
+            embeddings = tf.concat(embeddings, axis=-1)
             if attention:
                 embeddings = Common.self_attention_layer(embeddings)
             # "concat one-hot" is equal to "accumulate embedding"
@@ -39,12 +39,12 @@ class TreeAllEncoder(Encoder):
         hypers.update(hypers4path)
         return hypers
 
-    treeLeafEncoder = None
-    treePathEncoder = None
+    treeLeafEncoder = TreeLeafEncoder('', {}, {})
+    treePathEncoder = TreePathEncoder('', {}, {})
 
     def __init__(self, label: str, hyperparameters: Dict[str, Any], metadata: Dict[str, Any]):
-        self.treeLeafEncoder = TreeLeafEncoder(label, hyperparameters, metadata)
-        self.treePathEncoder = TreePathEncoder(label, hyperparameters, metadata)
+        TreeAllEncoder.treeLeafEncoder = TreeLeafEncoder(label, hyperparameters, metadata)
+        TreeAllEncoder.treePathEncoder = TreePathEncoder(label, hyperparameters, metadata)
         super().__init__(label, hyperparameters, metadata)
 
     @classmethod

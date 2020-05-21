@@ -6,19 +6,24 @@ import numpy as np
 
 
 class ModeEnum(Enum):
-    NBoW_ANNOY = 0
-    NBoW_KNN = 1
-    SIAMESE_30 = 10
-    SIAMESE_200 = 11
+    NBoW = 0
+    AUX = 1
+    MM_PATH = 10
+    MM_SBT = 11  # https://arxiv.org/abs/2005.06980
+    SIAMESE_30 = 20
+    SIAMESE_200 = 21
 
 
-MODE = ModeEnum.NBoW_ANNOY
+MODE = ModeEnum.MM_SBT
 MODE_TAG = MODE.name.lower()
+MM = MODE in (ModeEnum.MM_PATH, ModeEnum.MM_SBT)
 SIAMESE = MODE in (ModeEnum.SIAMESE_30, ModeEnum.SIAMESE_200)
-WANDB = True
 
-# JGD todo
-GREEDY = False
+WANDB = True
+ANNOY = True  # KNN
+TURBO = True  # for quick experiments
+ATTENTION = False
+DATA_ENHANCEMENT = False
 
 ROOT_DIR = Path.cwd().parent
 RESOURCES_DIR = ROOT_DIR / 'resources'
@@ -47,16 +52,29 @@ CORPUS_FILES = {
 
 LANGUAGES = list(sorted(CORPUS_FILES.keys()))
 DATA_SETS = ['train', 'valid', 'test']
-DATA_TYPES = ['code', 'query']
+DATA_TYPES = ['code', 'leaf', 'path', 'sbt', 'aux', 'query']
+if MODE is ModeEnum.SIAMESE_30:
+    SUB_TYPES = ['leaf', 'query']
+elif MODE is ModeEnum.MM_PATH:
+    SUB_TYPES = ['leaf', 'path', 'query']
+elif MODE is ModeEnum.MM_SBT:
+    SUB_TYPES = ['code', 'sbt', 'query']
+elif MODE is ModeEnum.AUX:
+    SUB_TYPES = ['aux', 'query']
+else:  # ModeEnum.NBoW, ModeEnum.SIAMESE_200
+    SUB_TYPES = ['code', 'query']
 
-BATCH_SIZE = 1000  # 200
-EMBEDDING_SIZE = 256
+BATCH_SIZE = 256
+EMBEDDING_SIZE = 128
 
 VOCAB_PCT_BPE = 0.5
 VOCAB_SIZE = 10000
 
 SIAMESE_MAX_SEQ_LEN = 200 if MODE is ModeEnum.SIAMESE_200 else 30
 CODE_MAX_SEQ_LEN = SIAMESE_MAX_SEQ_LEN if SIAMESE else 200
+LEAF_MAX_SEQ_LEN = SIAMESE_MAX_SEQ_LEN if SIAMESE else 30
+PATH_MAX_SEQ_LEN = SIAMESE_MAX_SEQ_LEN if SIAMESE else 30
+SBT_MAX_SEQ_LEN = SIAMESE_MAX_SEQ_LEN if SIAMESE else 200
 QUERY_MAX_SEQ_LEN = SIAMESE_MAX_SEQ_LEN if SIAMESE else 30
 
 random.seed(0)

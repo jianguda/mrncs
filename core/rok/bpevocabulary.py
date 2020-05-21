@@ -45,7 +45,7 @@ class BpeVocabulary(typing.Sized):
         """
         for token, count in self.count_tokens(words).items():
             bp_counts = Counter()  # type: Counter
-            sub_tokens = token.split(' ')
+            sub_tokens = token.split()
             joined_tokens = ''.join(sub_tokens)
             token_offsets = [0]
             length = 0

@@ -15,24 +15,32 @@ from rok import shared, train_model, utils
 
 
 class MrrEarlyStopping(EarlyStopping):
-    def __init__(self, code_seqs, query_seqs):
+    def __init__(self, seqs_list):
         super().__init__(monitor='val_mrr', mode='max', restore_best_weights=True, verbose=True, patience=5)
-        self.code_seqs = code_seqs
-        self.query_seqs = query_seqs
+        self.seqs_list = seqs_list
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
 
-        mean_mrr = compute_mrr(self.model, self.code_seqs, self.query_seqs)
+        mean_mrr = compute_mrr(self.model, self.seqs_list)
         print('Mean MRR:', mean_mrr)
         super().on_epoch_end(epoch, {**logs, 'val_mrr': mean_mrr})
 
 
-def compute_mrr(model, code_seqs, query_seqs):
-    code_embedding_predictor = train_model.get_embedding_predictor(model, 'code')
-    query_embedding_predictor = train_model.get_embedding_predictor(model, 'query')
+def get_embeddings(model, seqs_list):
+    predictors = list()
+    for data_type in shared.SUB_TYPES:
+        predictor = train_model.get_embedding_predictor(model, data_type)
+        predictors.append(predictor)
+    embeddings_list = list()
+    for embedding_predictor, seqs in zip(predictors, seqs_list):
+        embeddings = embedding_predictor.predict(seqs)
+        embeddings_list.append(embeddings)
+    return utils.repack_embeddings(embeddings_list)
 
-    n_samples = code_seqs.shape[0]
+
+def compute_mrr(model, seqs_list):
+    n_samples = seqs_list[0].shape[0]
     indices = list(range(n_samples))
     random.shuffle(indices)
     mrr_scores = []
@@ -40,9 +48,8 @@ def compute_mrr(model, code_seqs, query_seqs):
         if len(idx_chunk) < shared.BATCH_SIZE:
             continue
 
-        code_embeddings = code_embedding_predictor.predict(code_seqs[idx_chunk, :])
-        query_embeddings = query_embedding_predictor.predict(query_seqs[idx_chunk, :])
-
+        chunk_seqs_list = [seqs[idx_chunk, :] for seqs in seqs_list]
+        code_embeddings, query_embeddings = get_embeddings(model, chunk_seqs_list)
         distance_matrix = cdist(query_embeddings, code_embeddings, 'cosine')
         correct_elements = np.expand_dims(np.diag(distance_matrix), axis=-1)
         ranks = np.sum(distance_matrix <= correct_elements, axis=-1)
@@ -51,70 +58,70 @@ def compute_mrr(model, code_seqs, query_seqs):
     return np.mean(mrr_scores)
 
 
-def emit_mrr_scores(language: str):
-    model = utils.load_model(language, train_model.get_model())
-
-    valid_code_seqs = utils.load_seqs(language, 'valid', 'code')
-    valid_query_seqs = utils.load_seqs(language, 'valid', 'query')
-    valid_mean_mrr = compute_mrr(model, valid_code_seqs, valid_query_seqs)
-    test_code_seqs = utils.load_seqs(language, 'test', 'code')
-    test_query_seqs = utils.load_seqs(language, 'test', 'query')
-    test_mean_mrr = compute_mrr(model, test_code_seqs, test_query_seqs)
+def emit_mrr_scores(model, language: str):
+    valid_seqs_list = list()
+    test_seqs_list = list()
+    for data_type in shared.SUB_TYPES:
+        valid_seqs_list.append(utils.load_seqs(language, 'valid', data_type))
+        test_seqs_list.append(utils.load_seqs(language, 'test', data_type))
+    valid_mean_mrr = compute_mrr(model, valid_seqs_list)
+    test_mean_mrr = compute_mrr(model, test_seqs_list)
     return valid_mean_mrr, test_mean_mrr
 
 
-def build_embeddings(language: str, data_type: str):
-    print(f'building {language} {data_type} embeddings')
-    model = utils.load_model(language, train_model.get_model())
-    embedding_predictor = train_model.get_embedding_predictor(model, data_type)
-
-    seqs = utils.load_seqs(language, 'evaluation', data_type)
-    embeddings = embedding_predictor.predict(seqs)
-    utils.dump_embeddings(embeddings, language, data_type)
-
-
-def emit_ndcg_scores(language: str, queries):
+def emit_ndcg_scores(model, language: str):
     prediction = []
     print(f'Evaluating {language}')
-    build_embeddings(language, 'code')
-    build_embeddings(language, 'query')
 
-    code_embeddings = utils.load_embeddings(language, 'code')
-    query_embeddings = utils.load_embeddings(language, 'query')
+    for data_type in shared.SUB_TYPES:
+        print(f'Building {data_type} embeddings')
+        predictor = train_model.get_embedding_predictor(model, data_type)
+        seqs = utils.load_seqs(language, 'evaluation', data_type)
+        embeddings = predictor.predict(seqs)
+        utils.dump_embeddings(embeddings, language, data_type)
 
+    print('Loading embeddings')
+    embeddings_list = list()
+    for data_type in shared.SUB_TYPES:
+        embeddings = utils.load_embeddings(language, data_type)
+        embeddings_list.append(embeddings)
+
+    code_embeddings, query_embeddings = utils.repack_embeddings(embeddings_list)
     evaluation_docs = [{'url': doc['url'], 'identifier': doc['identifier']}
                        for doc in utils.load_docs(language, 'evaluation')]
 
-    annoy_index_flag = True
-    if annoy_index_flag:
-        annoy = AnnoyIndex(shared.EMBEDDING_SIZE, 'angular')
+    print('Indexing embeddings')
+    queries = utils.get_csn_queries()
+    if shared.ANNOY:
+        vector_dim = shared.EMBEDDING_SIZE * (2 if shared.MM else 1)
+        annoy = AnnoyIndex(vector_dim, 'angular')
 
         for idx in range(code_embeddings.shape[0]):
             annoy.add_item(idx, code_embeddings[idx, :])
-        annoy.build(10)
+        annoy.build(200)
 
         for query_idx, query in enumerate(queries):
             query_embedding = query_embeddings[query_idx]
-            nearest_neighbor_indices = annoy.get_nns_by_vector(query_embedding, 100)
-            for query_nearest_code_idx in nearest_neighbor_indices:
+            nearest_indices = annoy.get_nns_by_vector(query_embedding, 100)
+            for nearest_idx in nearest_indices:
                 prediction.append({
                     'query': query,
                     'language': language,
-                    'identifier': evaluation_docs[query_nearest_code_idx]['identifier'],
-                    'url': evaluation_docs[query_nearest_code_idx]['url'],
+                    'identifier': evaluation_docs[nearest_idx]['identifier'],
+                    'url': evaluation_docs[nearest_idx]['url'],
                 })
     else:
         nn = NearestNeighbors(n_neighbors=100, metric='cosine', n_jobs=-1)
         nn.fit(code_embeddings)
-        _, nearest_neighbor_indices = nn.kneighbors(query_embeddings)
+        _, nearest_indices = nn.kneighbors(query_embeddings)
 
         for query_idx, query in enumerate(queries):
-            for query_nearest_code_idx in nearest_neighbor_indices[query_idx, :]:
+            for nearest_idx in nearest_indices[query_idx, :]:
                 prediction.append({
                     'query': query,
                     'language': language,
-                    'identifier': evaluation_docs[query_nearest_code_idx]['identifier'],
-                    'url': evaluation_docs[query_nearest_code_idx]['url'],
+                    'identifier': evaluation_docs[nearest_idx]['identifier'],
+                    'url': evaluation_docs[nearest_idx]['url'],
                 })
 
     del evaluation_docs
@@ -123,12 +130,16 @@ def emit_ndcg_scores(language: str, queries):
 
 
 def evaluating():
+    models = dict()
+    for language in shared.LANGUAGES:
+        model = utils.load_model(language, train_model.get_model())
+        models.setdefault(language, model)
+
     # emit_mrr_scores
     valid_mrr_scores = {}
     test_mrr_scores = {}
-
     for language in shared.LANGUAGES:
-        valid_mean_mrr, test_mean_mrr = emit_mrr_scores(language)
+        valid_mean_mrr, test_mean_mrr = emit_mrr_scores(models.get(language), language)
         print(f'{language} - Valid Mean MRR: {valid_mean_mrr}, Test Mean MRR: {test_mean_mrr}')
         valid_mrr_scores[f'{language}_valid_mrr'] = valid_mean_mrr
         test_mrr_scores[f'{language}_test_mrr'] = test_mean_mrr
@@ -147,9 +158,8 @@ def evaluating():
 
     # emit_ndcg_scores
     predictions = []
-    queries = utils.get_csn_queries()
     for language in shared.LANGUAGES:
-        prediction = emit_ndcg_scores(language, queries)
+        prediction = emit_ndcg_scores(models.get(language), language)
         predictions.extend(prediction)
 
     df_predictions = pd.DataFrame(predictions, columns=['query', 'language', 'identifier', 'url'])

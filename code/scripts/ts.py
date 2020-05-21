@@ -86,10 +86,11 @@ class TS:
         tree = parser.parse(code.encode())
         code_lines = code.split('\n')
         self.root, self.terminals = self.traverse(tree, code_lines)
-        self.debug = False
+
+        self.debug = True
         if self.debug:
-            print(f'{"@" * 9}code\n{code}')
-            print(f'{"@" * 9}sexp\n{tree.root_node.sexp()}')
+            print(f'{language}{"@" * 9}code\n{code}')
+            print(f'{language}{"@" * 9}sexp\n{tree.root_node.sexp()}')
 
     def traverse(self, tree, code_lines):
         q = Queue()
@@ -256,3 +257,8 @@ def code2paths4py(code):
     tree = code2tree(code)
     paths = tree2paths(tree)
     return paths
+
+
+# check s-exp
+def code2sexp(code, language):
+    TS(code, language)

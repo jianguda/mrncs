@@ -3,7 +3,7 @@ import random
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import backend
-from tensorflow.keras.layers import Embedding, Input, Lambda, Layer
+from tensorflow.keras.layers import Dropout, Embedding, Input, Lambda, Layer
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Nadam
 from wandb.keras import WandbCallback
@@ -11,33 +11,25 @@ from wandb.keras import WandbCallback
 from rok import evaluate_model, utils, shared
 
 
-def get_embedding_layer(data_type: str):
-    input_length = shared.CODE_MAX_SEQ_LEN if data_type == 'code' else shared.QUERY_MAX_SEQ_LEN
-    inputs = Input(shape=(input_length,), name=f'{data_type}_input')
-    embeddings = Embedding(
-        input_length=shared.QUERY_MAX_SEQ_LEN,
-        input_dim=shared.VOCAB_SIZE,
-        output_dim=shared.EMBEDDING_SIZE,
-        name=f'{data_type}_embedding',
-        mask_zero=True)(inputs)
-    embeddings = ZeroMaskedEntries()(embeddings)
-    embeddings = Lambda(
-        mask_aware_mean, mask_aware_mean_output_shape, name=f'{data_type}_embedding_mean')(embeddings)
+# mm model
+def get_mm_model():
+    inputs = list()
+    embeddings = list()
+    for data_type in shared.SUB_TYPES:
+        input_data, embedding_data = get_embedding_layer(data_type)
+        inputs.append(input_data)
+        embeddings.append(embedding_data)
+    code_embedding, query_embedding = utils.repack_embeddings(embeddings)
+    merge_layer = Lambda(cosine_similarity, name='cosine_similarity')(
+        [code_embedding, query_embedding]
+    )
 
-    return inputs, embeddings
-
-
-def get_embedding_predictor(model, data_type: str):
-    if shared.SIAMESE:
-        base_model = model.get_layer('base_model')
-        inputs = base_model.get_layer('siamese_input').input
-        outputs = base_model.get_layer('siamese_embedding_mean').output
-    else:
-        inputs = model.get_layer(f'{data_type}_input').input
-        outputs = model.get_layer(f'{data_type}_embedding_mean').output
-    return Model(inputs=inputs, outputs=outputs)
+    model = Model(inputs=inputs, outputs=merge_layer)
+    model.compile(optimizer=Nadam(), loss=cosine_loss)
+    return model
 
 
+# siamese model
 def get_siamese_base_model(input_shape) -> Model:
     siamese_input = Input(shape=input_shape, name='siamese_input')
     siamese_embedding = Embedding(
@@ -47,6 +39,8 @@ def get_siamese_base_model(input_shape) -> Model:
         name='siamese_embedding',
         mask_zero=True)(siamese_input)
     siamese_embedding = ZeroMaskedEntries()(siamese_embedding)
+    if not shared.TURBO:
+        siamese_embedding = Dropout(0.5)(siamese_embedding)
     siamese_embedding = Lambda(
         mask_aware_mean, mask_aware_mean_output_shape, name='siamese_embedding_mean'
     )(siamese_embedding)
@@ -86,7 +80,20 @@ def get_siamese_model() -> Model:
     return siamese_model
 
 
-def create_siamese_pairs(batch_code_seqs, batch_query_seqs, num_samples):
+# vanilla model
+def get_vanilla_model() -> Model:
+    code_input, code_embedding = get_embedding_layer('code')
+    query_input, query_embedding = get_embedding_layer('query')
+    merge_layer = Lambda(cosine_similarity, name='cosine_similarity')(
+        [code_embedding, query_embedding]
+    )
+
+    model = Model(inputs=[code_input, query_input], outputs=merge_layer)
+    model.compile(optimizer=Nadam(), loss=cosine_loss)
+    return model
+
+
+def create_enhanced_pairs(batch_code_seqs, batch_query_seqs, num_samples):
     positive_pairs = []
     positive_labels = []
     # create_positive_pairs
@@ -105,31 +112,6 @@ def create_siamese_pairs(batch_code_seqs, batch_query_seqs, num_samples):
         negative_labels.append([1.0])
 
     return np.array(positive_pairs + negative_pairs), np.array(positive_labels + negative_labels)
-
-
-def generate_siamese_batch(padded_encoded_code_seqs, padded_encoded_query_seqs, batch_size: int):
-    n_samples = padded_encoded_code_seqs.shape[0]
-
-    shuffled_indices = np.arange(0, n_samples)
-    np.random.shuffle(shuffled_indices)
-    padded_encoded_code_seqs = padded_encoded_code_seqs[shuffled_indices, :]
-    padded_encoded_query_seqs = padded_encoded_query_seqs[shuffled_indices, :]
-
-    idx = 0
-    while True:
-        end_idx = min(idx + batch_size, n_samples)
-        n_batch_samples = min(batch_size, end_idx - idx)
-
-        batch_code_seqs = padded_encoded_code_seqs[idx:end_idx, :]
-        batch_query_seqs = padded_encoded_query_seqs[idx:end_idx, :]
-        pairs, labels = create_siamese_pairs(batch_code_seqs, batch_query_seqs, n_batch_samples)
-        # The siamese network expects two inputs and one output. Split the pairs into a list of inputs.
-        # yield [pairs[:, 0], pairs[:, 1]], labels
-        yield {'code_input': batch_code_seqs, 'query_input': batch_query_seqs}, np.zeros(n_batch_samples)
-
-        idx += n_batch_samples
-        if idx >= n_samples:
-            idx = 0
 
 
 def cosine_similarity(x):
@@ -154,42 +136,69 @@ def cosine_loss(_, cosine_similarity_matrix):
     return tf.reduce_mean(per_sample_loss)
 
 
-def get_vanilla_model() -> Model:
-    code_input, code_embedding = get_embedding_layer('code')
-    query_input, query_embedding = get_embedding_layer('query')
-    merge_layer = Lambda(cosine_similarity, name='cosine_similarity')(
-        [code_embedding, query_embedding]
-    )
+def get_embedding_layer(data_type: str):
+    input_length = utils.get_input_length(data_type)
+    inputs = Input(shape=(input_length,), name=f'{data_type}_input')
+    embeddings = Embedding(
+        input_length=input_length,
+        input_dim=shared.VOCAB_SIZE,
+        output_dim=shared.EMBEDDING_SIZE * (2 if shared.MM and data_type == 'query' else 1),
+        name=f'{data_type}_embedding',
+        mask_zero=True)(inputs)
+    embeddings = ZeroMaskedEntries()(embeddings)
+    if not shared.TURBO:
+        embeddings = Dropout(0.5)(embeddings)
+    embeddings = Lambda(
+        mask_aware_mean, mask_aware_mean_output_shape, name=f'{data_type}_embedding_mean')(embeddings)
 
-    model = Model(inputs=[code_input, query_input], outputs=merge_layer)
-    model.compile(optimizer=Nadam(), loss=cosine_loss)
-    return model
+    return inputs, embeddings
+
+
+def get_embedding_predictor(model, data_type: str):
+    if shared.SIAMESE:
+        base_model = model.get_layer('base_model')
+        inputs = base_model.get_layer('siamese_input').input
+        outputs = base_model.get_layer('siamese_embedding_mean').output
+    else:
+        inputs = model.get_layer(f'{data_type}_input').input
+        outputs = model.get_layer(f'{data_type}_embedding_mean').output
+    return Model(inputs=inputs, outputs=outputs)
 
 
 def get_model() -> Model:
-    if shared.SIAMESE:
+    if shared.MM:
+        model = get_mm_model()
+    elif shared.SIAMESE:
         model = get_siamese_model()
     else:
         model = get_vanilla_model()
     return model
 
 
-def generate_batch(padded_encoded_code_seqs, padded_encoded_query_seqs, batch_size: int):
-    n_samples = padded_encoded_code_seqs.shape[0]
+def generate_batch(train_seqs_dict, batch_size: int):
+    n_samples = list(train_seqs_dict.values())[0].shape[0]
 
     shuffled_indices = np.arange(0, n_samples)
     np.random.shuffle(shuffled_indices)
-    padded_encoded_code_seqs = padded_encoded_code_seqs[shuffled_indices, :]
-    padded_encoded_query_seqs = padded_encoded_query_seqs[shuffled_indices, :]
+    for data_value in train_seqs_dict.keys():
+        train_seqs = train_seqs_dict.get(data_value)
+        train_seqs = train_seqs[shuffled_indices, :]
+        train_seqs_dict[data_value] = train_seqs
 
     idx = 0
     while True:
         end_idx = min(idx + batch_size, n_samples)
         n_batch_samples = min(batch_size, end_idx - idx)
 
-        batch_code_seqs = padded_encoded_code_seqs[idx:end_idx, :]
-        batch_query_seqs = padded_encoded_query_seqs[idx:end_idx, :]
-        yield {'code_input': batch_code_seqs, 'query_input': batch_query_seqs}, np.zeros(n_batch_samples)
+        batch_seqs_dict = dict()
+        for data_type, encoded_seqs in train_seqs_dict.items():
+            batch_encoded_seqs = encoded_seqs[idx:end_idx, :]
+            batch_seqs_dict.setdefault(f'{data_type}_input', batch_encoded_seqs)
+        # if shared.DATA_ENHANCEMENT:
+        #     pairs, labels = create_enhanced_pairs(batch_code_seqs, batch_query_seqs, n_batch_samples)
+        #     yield [pairs[:, 0], pairs[:, 1]], labels
+        # else:
+        yield batch_seqs_dict, np.zeros(n_batch_samples)
 
         idx += n_batch_samples
         if idx >= n_samples:
@@ -205,11 +214,11 @@ class ZeroMaskedEntries(Layer):
         self.output_dim = input_shape[1]
         self.repeat_dim = input_shape[2]
 
-    def call(self, x, mask=None):
+    def call(self, inputs, mask=None):
         mask = backend.cast(mask, 'float32')
         mask = backend.repeat(mask, self.repeat_dim)
         mask = backend.permute_dimensions(mask, (0, 2, 1))
-        return x * mask
+        return inputs * mask
 
     def compute_mask(self, input_shape, input_mask=None):
         return None
@@ -221,7 +230,7 @@ def mask_aware_mean(x):
     # number of that rows are not all zeros
     n = backend.sum(backend.cast(mask, 'float32'), axis=1, keepdims=False)
     # compute mask-aware mean of x
-    x_mean = backend.sum(x, axis=1, keepdims=False) / n
+    x_mean = backend.sum(x, axis=1, keepdims=False) / (n + 1E-8)
 
     return x_mean
 
@@ -235,23 +244,23 @@ def mask_aware_mean_output_shape(input_shape):
 def training(language, verbose=True):
     model = get_model()
 
-    train_code_seqs = utils.load_seqs(language, 'train', 'code')
-    train_query_seqs = utils.load_seqs(language, 'train', 'query')
-    valid_code_seqs = utils.load_seqs(language, 'valid', 'code')
-    valid_query_seqs = utils.load_seqs(language, 'valid', 'query')
+    train_seqs_dict = dict()
+    valid_seqs_list = list()
+    for data_type in shared.SUB_TYPES:
+        train_seqs = utils.load_seqs(language, 'train', data_type)
+        train_seqs_dict.setdefault(data_type, train_seqs)
+        valid_seqs = utils.load_seqs(language, 'valid', data_type)
+        valid_seqs_list.append(valid_seqs)
 
-    num_samples = train_code_seqs.shape[0]
-    if shared.SIAMESE:
-        batch_generator = generate_siamese_batch(train_code_seqs, train_query_seqs, batch_size=shared.BATCH_SIZE)
-    else:
-        batch_generator = generate_batch(train_code_seqs, train_query_seqs, batch_size=shared.BATCH_SIZE)
+    n_samples = list(train_seqs_dict.values())[0].shape[0]
+    batch_generator = generate_batch(train_seqs_dict, batch_size=shared.BATCH_SIZE)
 
     additional_callback = [WandbCallback(monitor='val_loss', save_model=False)] if shared.WANDB else []
     model.fit(
         batch_generator, epochs=200,
-        steps_per_epoch=num_samples // shared.BATCH_SIZE,
+        steps_per_epoch=n_samples // shared.BATCH_SIZE,
         verbose=2 if verbose else -1,
-        callbacks=[evaluate_model.MrrEarlyStopping(valid_code_seqs, valid_query_seqs)] + additional_callback
+        callbacks=[evaluate_model.MrrEarlyStopping(valid_seqs_list)] + additional_callback
     )
 
     utils.save_model(language, model)

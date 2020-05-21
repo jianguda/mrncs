@@ -6,7 +6,7 @@ from pathlib import Path
 
 from dpu_utils.utils import load_jsonl_gz
 
-from .ts import code2identifiers, code2paths, code2paths4py
+from .ts import code2identifiers, code2paths, code2paths4py, code2sexp
 
 
 # JGD for alon_encoder
@@ -153,12 +153,13 @@ def run4demo():
 
     data = [go_code, java_code, javascript_code, php_code, python_code, ruby_code]
     languages = ['go', 'java', 'javascript', 'php', 'python', 'ruby']
-    process_data([go_code], 'go')
-    process_data([java_code], 'java')
-    process_data([javascript_code], 'javascript')
-    process_data([php_code], 'php')
-    process_data([python_code], 'python')
-    process_data([ruby_code], 'ruby')
-    # for code, language in zip(data, languages):
-    #     terminal_counter, nonterminal_counter = process_data([code], language)
-    #     print_data(terminal_counter, nonterminal_counter)
+    # process_data([go_code], 'go')
+    # process_data([java_code], 'java')
+    # process_data([javascript_code], 'javascript')
+    # process_data([php_code], 'php')
+    # process_data([python_code], 'python')
+    # process_data([ruby_code], 'ruby')
+    for code, language in zip(data, languages):
+        code2sexp(code, language)
+        # terminal_counter, nonterminal_counter = process_data([code], language)
+        # print_data(terminal_counter, nonterminal_counter)

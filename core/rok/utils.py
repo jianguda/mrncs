@@ -5,9 +5,71 @@ from pathlib import Path
 from typing import Iterable
 
 import numpy as np
+import tensorflow as tf
+from tensorflow.keras import backend
+from tensorflow.keras.layers import Layer
 
 from rok import shared
 from rok.bpevocabulary import BpeVocabulary
+
+
+class SelfAttention(Layer):
+    def __init__(self, input_dim, output_dim, **kwargs):
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        super().__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.kernel = self.add_weight(
+            name='kernel',
+            shape=(1000, self.input_dim, self.output_dim),
+            initializer='uniform',
+            trainable=True)
+        super().build(input_shape)
+
+    def call(self, inputs, **kwargs):
+        WQ = backend.dot(inputs, self.kernel[0])
+        WK = backend.dot(inputs, self.kernel[1])
+        WV = backend.dot(inputs, self.kernel[2])
+
+        QK = backend.batch_dot(WQ, backend.permute_dimensions(WK, [0, 2, 1]))
+        QK = QK / tf.sqrt(64)
+        QK = backend.softmax(QK)
+
+        V = backend.batch_dot(QK, WV)
+        return V
+
+
+def repack_embeddings(embeddings_list):
+    if len(embeddings_list) == 3:
+        hybrid_embeddings = concat_embeddings(embeddings_list[:2])
+        if shared.ATTENTION:
+            # JGD check
+            hybrid_embeddings = SelfAttention(256, 256)(hybrid_embeddings)
+            # hybrid_embeddings = Dropout(0.5)(hybrid_embeddings)
+        query_embeddings = embeddings_list[2]
+        return hybrid_embeddings, query_embeddings
+    else:
+        return embeddings_list
+
+
+def concat_embeddings(embeddings_list):
+    hybrid_embeddings = tf.concat(embeddings_list, axis=-1)
+    return hybrid_embeddings
+
+
+def get_input_length(data_type: str):
+    if data_type == 'code':
+        input_length = shared.CODE_MAX_SEQ_LEN
+    elif data_type == 'leaf':
+        input_length = shared.LEAF_MAX_SEQ_LEN
+    elif data_type == 'path':
+        input_length = shared.PATH_MAX_SEQ_LEN
+    elif data_type == 'sbt':
+        input_length = shared.SBT_MAX_SEQ_LEN
+    else:  # 'query'
+        input_length = shared.QUERY_MAX_SEQ_LEN
+    return input_length
 
 
 def flatten(iterable: Iterable[Iterable[str]]) -> Iterable[str]:

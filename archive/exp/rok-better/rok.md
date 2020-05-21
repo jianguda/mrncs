@@ -146,3 +146,33 @@ All languages - Valid Mean MRR: 0.6068308051204107, Test Mean MRR: 0.63935328765
 Building python code embeddings
 Evaluating python
 NDCG Average: 0.408769285
+
+# tmp
+
+python - Valid Mean MRR: 0.6512005183234959, Test Mean MRR: 0.6663939745875966
+All languages - Valid Mean MRR: 0.6512005183234959, Test Mean MRR: 0.6663939745875966
+Evaluating python
+building python code embeddings
+building python query embeddings
+
+wandb: Waiting for W&B process to finish, PID 14000
+wandb: Program ended successfully.
+wandb: Run summary:
+wandb: valid_mean_mrr 0.6512005183234959
+wandb: \_runtime 17.266382694244385
+wandb: python_valid_mrr 0.6512005183234959
+wandb: \_step 0
+wandb: test_mean_mrr 0.6663939745875966
+wandb: python_test_mrr 0.6663939745875966
+wandb: \_timestamp 1590073093.9967086
+wandb: Syncing files in wandb/run-20200521_145759-vzp2ooo7:
+wandb: model_predictions.csv
+wandb: plus 7 W&B file(s) and 0 media file(s)
+wandb:
+wandb: Synced kth-nbow_annoy-2020-05-21: https://app.wandb.ai/jianguda/CodeSearchNet/runs/vzp2ooo7
+NDCG Average: 0.200732492
+
+# log
+
+SBT concat
+NDCG Average: 0.413983817

@@ -1,6 +1,6 @@
 ## baselines
 
-**MRR score (train over single language and predict over that language)**
+**MRR score (train and predict over one language)**
 
 |   Model   |  Go   | Java  |  JS   |  PHP  |  Python   | Ruby  |  Ma-Avg.  |
 | :-------: | :---: | :---: | :---: | :---: | :-------: | :---: | :-------: |
@@ -9,7 +9,7 @@
 | biRNN-raw | 0.708 | 0.581 | 0.369 | 0.601 | **0.643** | 0.223 | **0.521** |
 | BERT-raw  | 0.726 | 0.551 | 0.417 | 0.601 | **0.677** | 0.351 | **0.554** |
 
-**MRR score (train over all language and predict over all languages)**
+**MRR score (train and predict over all languages)**
 
 |   Model   |  Go   | Java  |  JS   |  PHP  |  Python   | Ruby  |    Avg.    |
 | :-------: | :---: | :---: | :---: | :---: | :-------: | :---: | :--------: |
@@ -20,9 +20,9 @@
 
 MRR: the mean reciprocal rank (MRR) score (the higher the better)
 
-CNN is almost always the worst when it is over single languages, but performs not too badly over multi-languages. In contrast, RNN performs well when it is over single languages, but performs badly over multi-languages. The performance of NBOW is stable and ideal for both two cases. BERT should be very promising as well.
+CNN is almost always the worst when it is over single languages, but performs not too badly over multi-languages. In contrast, RNN performs well when it is over single languages, but performs badly over multi-languages. The performance of NBoW is stable and ideal for both two cases. BERT should be very promising as well.
 
-**NDCG score (train over single language and predict over that language)**
+**NDCG score (train and predict over one language)**
 
 |   Model   |  Go   | Java  |  JS   |  PHP  |  Python   | Ruby  |  Ma-Avg.  |
 | :-------: | :---: | :---: | :---: | :---: | :-------: | :---: | :-------: |
@@ -31,7 +31,7 @@ CNN is almost always the worst when it is over single languages, but performs no
 | biRNN-raw | 0.031 | 0.122 | 0.025 | 0.098 |   0.184   | 0.055 |   0.086   |
 | BERT-raw  | 0.037 | 0.095 | 0.026 | 0.078 |   0.139   | 0.115 |   0.082   |
 
-**NDCG score (train over all language and predict over all languages)**
+**NDCG score (train and predict over all languages)**
 
 |   Model   |  Go   | Java  |  JS   |  PHP  |  Python   | Ruby  |   Avg.    |
 | :-------: | :---: | :---: | :---: | :---: | :-------: | :---: | :-------: |
@@ -42,7 +42,7 @@ CNN is almost always the worst when it is over single languages, but performs no
 
 NDCG: the Normalized Discounted Cumulative Gain (NDCG) score (the higher the better)
 
-NBOW performs the best, and performances of the other three models are similar to each other but vary on different corpuses.
+NBoW performs the best, and performances of the other three models are similar to each other but vary on different corpuses.
 
 **Time Cost for Training (Hours)**
 

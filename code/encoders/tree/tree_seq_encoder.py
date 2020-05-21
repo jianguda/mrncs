@@ -416,7 +416,7 @@ class TreeSeqEncoder(MaskedSeqEncoder):
                                                         sequence_token_masks=seq_token_masks)
                 embeddings.append(embedding)
 
-            embeddings = tf.stack(embeddings, axis=0)
+            embeddings = tf.concat(embeddings, axis=-1)
             if attention:
                 embeddings = Common.self_attention_layer(embeddings)
             # "concat one-hot" is equal to "accumulate embedding"
