@@ -6,56 +6,24 @@ from typing import Iterable
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import backend
-from tensorflow.keras.layers import Layer
 
 from rok import shared
 from rok.bpevocabulary import BpeVocabulary
 
 
-class SelfAttention(Layer):
-    def __init__(self, input_dim, output_dim, **kwargs):
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-        super().__init__(**kwargs)
-
-    def build(self, input_shape):
-        self.kernel = self.add_weight(
-            name='kernel',
-            shape=(1000, self.input_dim, self.output_dim),
-            initializer='uniform',
-            trainable=True)
-        super().build(input_shape)
-
-    def call(self, inputs, **kwargs):
-        WQ = backend.dot(inputs, self.kernel[0])
-        WK = backend.dot(inputs, self.kernel[1])
-        WV = backend.dot(inputs, self.kernel[2])
-
-        QK = backend.batch_dot(WQ, backend.permute_dimensions(WK, [0, 2, 1]))
-        QK = QK / tf.sqrt(64)
-        QK = backend.softmax(QK)
-
-        V = backend.batch_dot(QK, WV)
-        return V
-
-
 def repack_embeddings(embeddings_list):
     if len(embeddings_list) == 3:
-        hybrid_embeddings = concat_embeddings(embeddings_list[:2])
-        if shared.ATTENTION:
-            # JGD check
-            hybrid_embeddings = SelfAttention(256, 256)(hybrid_embeddings)
-            # hybrid_embeddings = Dropout(0.5)(hybrid_embeddings)
+        hybrid_embeddings = tf.math.add_n(embeddings_list[:2])
+        # concat-operation is similar to accumulate-operation
+        # concat-operation is to concat distributed embeddings
+        # accumulate-operation is to concat one-hot embeddings
+        # but concat-operation would double the embedding size
+        # therefore we prefer to utilize accumulate-operation
+        # hybrid_embeddings = tf.concat(embeddings_list[:2], axis=-1)
         query_embeddings = embeddings_list[2]
         return hybrid_embeddings, query_embeddings
     else:
         return embeddings_list
-
-
-def concat_embeddings(embeddings_list):
-    hybrid_embeddings = tf.concat(embeddings_list, axis=-1)
-    return hybrid_embeddings
 
 
 def get_input_length(data_type: str):
@@ -119,7 +87,13 @@ def get_csn_queries():
 
 # docs
 def _get_docs_path(language: str, data_set: str):
-    return Path(shared.DOCS_DIR) / shared.DOCS_FILENAME.format(language=language, data_set=data_set)
+    docs_filename = shared.DOCS_FILENAME.format(language=language, data_set=data_set)
+    return Path(shared.DOCS_DIR) / docs_filename
+
+
+def check_docs(language: str, data_set: str) -> bool:
+    path = _get_docs_path(language=language, data_set=data_set)
+    return Path(path).exists()
 
 
 def dump_docs(docs, language: str, data_set: str):
@@ -132,8 +106,13 @@ def load_docs(language: str, data_set: str):
 
 # vocabs
 def _get_vocabs_path(language: str, data_type: str) -> str:
-    vocabs_cache_filename = shared.VOCABS_FILENAME.format(language=language, data_type=data_type)
-    return Path(shared.VOCABS_DIR) / vocabs_cache_filename
+    vocabs_filename = shared.VOCABS_FILENAME.format(language=language, data_type=data_type)
+    return Path(shared.VOCABS_DIR) / vocabs_filename
+
+
+def check_vocabs(language: str, data_type: str) -> bool:
+    path = _get_vocabs_path(language=language, data_type=data_type)
+    return Path(path).exists()
 
 
 def dump_vocabs(vocabulary: BpeVocabulary, language: str, data_type: str):
@@ -146,8 +125,13 @@ def load_vocabs(language: str, data_type: str) -> BpeVocabulary:
 
 # seqs
 def _get_seqs_path(language: str, data_set: str, data_type: str) -> str:
-    seqs_cache_filename = shared.SEQS_FILENAME.format(language=language, data_set=data_set, data_type=data_type)
-    return Path(shared.SEQS_DIR) / seqs_cache_filename
+    seqs_filename = shared.SEQS_FILENAME.format(language=language, data_set=data_set, data_type=data_type)
+    return Path(shared.SEQS_DIR) / seqs_filename
+
+
+def check_seqs(language: str, data_set: str, data_type: str) -> bool:
+    path = _get_seqs_path(language=language, data_set=data_set, data_type=data_type)
+    return Path(path).exists()
 
 
 def dump_seqs(seqs: np.ndarray, language: str, data_set: str, data_type: str):

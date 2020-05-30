@@ -174,5 +174,50 @@ NDCG Average: 0.200732492
 
 # log
 
-SBT concat
-NDCG Average: 0.413983817
+# True 128 128
+
+0.8269915622155786
+NDCG Average: 0.399703986
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/52t8ar4w
+
+# True 256 64
+
+0.7306610799114502
+NDCG Average: 0.380606170
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/2ux97mdy
+
+# True 256 128
+
+0.7713814818673878
+NDCG Average: 0.410583624
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/puyq3ilu
+
+# True 256 256
+
+0.7973445289794833
+NDCG Average: 0.423276598
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/3njnsd02
+
+# False 256 128
+
+0.7913447136221236
+NDCG Average: 0.382017321
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/3rxr9asi
+
+# False 256 256
+
+0.8116356218557684
+NDCG Average: 0.420199946
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/1wjou3qz
+
+# log
+
+# Code + SBT
+
+0.807987491947274
+NDCG Average: 0.426573716
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/j86lbcoy
+
+# Leaf + Path
+
+0.6859633260727477

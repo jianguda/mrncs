@@ -9,6 +9,7 @@ from tensorflow.keras.optimizers import Nadam
 from wandb.keras import WandbCallback
 
 from rok import evaluate_model, utils, shared
+from rok.attention import SelfAttention
 
 
 # mm model
@@ -39,8 +40,7 @@ def get_siamese_base_model(input_shape) -> Model:
         name='siamese_embedding',
         mask_zero=True)(siamese_input)
     siamese_embedding = ZeroMaskedEntries()(siamese_embedding)
-    if not shared.TURBO:
-        siamese_embedding = Dropout(0.5)(siamese_embedding)
+    # siamese_embedding = Dropout(0.5)(siamese_embedding)
     siamese_embedding = Lambda(
         mask_aware_mean, mask_aware_mean_output_shape, name='siamese_embedding_mean'
     )(siamese_embedding)
@@ -142,12 +142,14 @@ def get_embedding_layer(data_type: str):
     embeddings = Embedding(
         input_length=input_length,
         input_dim=shared.VOCAB_SIZE,
-        output_dim=shared.EMBEDDING_SIZE * (2 if shared.MM and data_type == 'query' else 1),
+        output_dim=shared.EMBEDDING_SIZE,
         name=f'{data_type}_embedding',
         mask_zero=True)(inputs)
     embeddings = ZeroMaskedEntries()(embeddings)
-    if not shared.TURBO:
-        embeddings = Dropout(0.5)(embeddings)
+    # embeddings = Dropout(0.5)(embeddings)
+    if shared.ATTENTION:
+        embeddings = SelfAttention(16, shared.EMBEDDING_SIZE)(embeddings)
+        # embeddings = Dropout(0.5)(embeddings)
     embeddings = Lambda(
         mask_aware_mean, mask_aware_mean_output_shape, name=f'{data_type}_embedding_mean')(embeddings)
 
@@ -224,15 +226,15 @@ class ZeroMaskedEntries(Layer):
         return None
 
 
-def mask_aware_mean(x):
+def mask_aware_mean(inputs):
     # recreate the masks - all zero rows have been masked
-    mask = backend.not_equal(backend.sum(backend.abs(x), axis=2, keepdims=True), 0)
+    mask = backend.not_equal(backend.sum(backend.abs(inputs), axis=2, keepdims=True), 0)
     # number of that rows are not all zeros
     n = backend.sum(backend.cast(mask, 'float32'), axis=1, keepdims=False)
     # compute mask-aware mean of x
-    x_mean = backend.sum(x, axis=1, keepdims=False) / (n + 1E-8)
+    inputs_mean = backend.sum(inputs, axis=1, keepdims=False) / (n + 1E-8)
 
-    return x_mean
+    return inputs_mean
 
 
 def mask_aware_mean_output_shape(input_shape):

@@ -21,9 +21,8 @@ sudo rm -rf /datadrive/core
 
 # ssh terminal
 
-cd /datadrive
-rm -rf codesnippetsearch/rok
-cp -rf core/rok codesnippetsearch/rok
+rm -rf /datadrive/codesnippetsearch/rok
+cp -rf /datadrive/core/rok /datadrive/codesnippetsearch/rok
 
 <!-- cp -rf code/. CodeSearchNet/code -->
 

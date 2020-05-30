@@ -93,9 +93,7 @@ def emit_ndcg_scores(model, language: str):
     print('Indexing embeddings')
     queries = utils.get_csn_queries()
     if shared.ANNOY:
-        vector_dim = shared.EMBEDDING_SIZE * (2 if shared.MM else 1)
-        annoy = AnnoyIndex(vector_dim, 'angular')
-
+        annoy = AnnoyIndex(shared.EMBEDDING_SIZE, 'angular')
         for idx in range(code_embeddings.shape[0]):
             annoy.add_item(idx, code_embeddings[idx, :])
         annoy.build(200)

@@ -1,5 +1,4 @@
 import functools
-import gc
 import itertools
 import operator
 import re
@@ -62,6 +61,8 @@ def prepare_corpus_docs(args):
     language, data_set = args
     print(f'Building docs for {language} {data_set}')
 
+    if utils.check_docs(language, data_set):
+        return
     prepared_docs = list()
     for doc in utils.get_csn_corpus(language, data_set):
         language = doc['language']
@@ -80,6 +81,8 @@ def prepare_vocabs(language):
 
     docs = utils.load_docs(language, 'train')
     for data_type in shared.SUB_TYPES:
+        if utils.check_vocabs(language, data_type):
+            continue
         tokens = (utils.flatten(doc[data_type] for doc in docs))
         tokens = utils.flatten(preprocess_tokens(tokens, data_type))
         vocabulary = BpeVocabulary(vocab_size=shared.VOCAB_SIZE, pct_bpe=shared.VOCAB_PCT_BPE)
@@ -97,24 +100,19 @@ def encode_seqs(seqs: Iterable[List[str]], language: str, data_type: str) -> np.
     return np.array(list(encoded_seqs))
 
 
-def filter_valid_seqs(encoded_seqs_dict: dict):
-    valid_seqs = (encoded_seqs.astype(bool).sum(axis=1) > 0 for encoded_seqs in encoded_seqs_dict.values())
-    valid_seqs_indices = functools.reduce(operator.and_, valid_seqs)
-
-    for data_type in encoded_seqs_dict.keys():
-        encoded_seqs = encoded_seqs_dict.get(data_type)
-        valid_seqs = encoded_seqs[valid_seqs_indices, :]
-        encoded_seqs_dict[data_type] = valid_seqs
-
-    return encoded_seqs_dict
+def filter_valid_seqs(encoded_seqs):
+    valid_seqs = (encoded_seq.astype(bool).sum(axis=1) > 0 for encoded_seq in encoded_seqs)
+    valid_indices = functools.reduce(operator.and_, valid_seqs)
+    return encoded_seqs[valid_indices, :]
 
 
 def prepare_seqs(args):
     language, data_set = args
     print(f'Building sequences for {language} {data_set}')
 
-    encoded_seqs_dict = dict()
     for data_type in shared.SUB_TYPES:
+        if utils.check_seqs(language, data_set, data_type):
+            continue
         if data_set == 'evaluation' and data_type == 'query':
             docs = utils.get_csn_queries()
         else:
@@ -124,11 +122,9 @@ def prepare_seqs(args):
         else:
             seqs = (doc[data_type] for doc in docs)
         encoded_seqs = encode_seqs(seqs, language, data_type)
-        encoded_seqs_dict.setdefault(data_type, encoded_seqs)
-    # Check for invalid sequences
-    if data_set != 'evaluation':
-        encoded_seqs_dict = filter_valid_seqs(encoded_seqs_dict)
-    for data_type, encoded_seqs in encoded_seqs_dict.items():
+        # Check for invalid sequences
+        if data_set != 'evaluation':
+            encoded_seqs = filter_valid_seqs(encoded_seqs)
         utils.dump_seqs(encoded_seqs, language, data_set, data_type)
 
     print(f'Done building sequences for {language} {data_set}')
@@ -136,9 +132,12 @@ def prepare_seqs(args):
 
 def prepare_query_docs(language):
     print(f'Parsing {language}')
+    data_set = 'evaluation'
+    if utils.check_docs(language, data_set):
+        return
     evaluation_pkl_path = Path(shared.DATA_DIR) / f'{language}_dedupe_definitions_v2.pkl'
     evaluation_docs = utils.load_pickle(evaluation_pkl_path)
-    utils.dump_docs(evaluation_docs, language, 'evaluation')
+    utils.dump_docs(evaluation_docs, language, data_set)
 
 
 def caching():

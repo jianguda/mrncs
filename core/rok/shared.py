@@ -8,20 +8,21 @@ import numpy as np
 class ModeEnum(Enum):
     NBoW = 0
     AUX = 1
-    MM_PATH = 10
-    MM_SBT = 11  # https://arxiv.org/abs/2005.06980
+    SBT = 2
+    LEAF = 3
+    MM_SBT = 10  # https://arxiv.org/abs/2005.06980
+    MM_PATH = 11
     SIAMESE_30 = 20
     SIAMESE_200 = 21
 
 
-MODE = ModeEnum.MM_SBT
+MODE = ModeEnum.MM_PATH
 MODE_TAG = MODE.name.lower()
-MM = MODE in (ModeEnum.MM_PATH, ModeEnum.MM_SBT)
+MM = MODE in (ModeEnum.MM_SBT, ModeEnum.MM_PATH)
 SIAMESE = MODE in (ModeEnum.SIAMESE_30, ModeEnum.SIAMESE_200)
 
 WANDB = True
-ANNOY = True  # KNN
-TURBO = True  # for quick experiments
+ANNOY = False  # KNN
 ATTENTION = False
 DATA_ENHANCEMENT = False
 
@@ -30,8 +31,8 @@ RESOURCES_DIR = ROOT_DIR / 'resources'
 DATA_DIR = RESOURCES_DIR / 'data'
 CACHES_DIR = RESOURCES_DIR / 'caches'
 DOCS_DIR = CACHES_DIR / 'docs'
-VOCABS_DIR = CACHES_DIR / 'vocabs' / MODE_TAG
-SEQS_DIR = CACHES_DIR / 'seqs' / MODE_TAG
+VOCABS_DIR = CACHES_DIR / 'vocabs'
+SEQS_DIR = CACHES_DIR / 'seqs'
 MODELS_DIR = CACHES_DIR / 'models' / MODE_TAG
 EMBEDDINGS_DIR = CACHES_DIR / 'embeddings' / MODE_TAG
 
@@ -53,19 +54,21 @@ CORPUS_FILES = {
 LANGUAGES = list(sorted(CORPUS_FILES.keys()))
 DATA_SETS = ['train', 'valid', 'test']
 DATA_TYPES = ['code', 'leaf', 'path', 'sbt', 'aux', 'query']
-if MODE is ModeEnum.SIAMESE_30:
-    SUB_TYPES = ['leaf', 'query']
-elif MODE is ModeEnum.MM_PATH:
-    SUB_TYPES = ['leaf', 'path', 'query']
+if MODE is ModeEnum.AUX:
+    SUB_TYPES = ['aux', 'query']
+if MODE is ModeEnum.SBT:
+    SUB_TYPES = ['sbt', 'query']
 elif MODE is ModeEnum.MM_SBT:
     SUB_TYPES = ['code', 'sbt', 'query']
-elif MODE is ModeEnum.AUX:
-    SUB_TYPES = ['aux', 'query']
+elif MODE is ModeEnum.MM_PATH:
+    SUB_TYPES = ['leaf', 'path', 'query']
+elif MODE in (ModeEnum.LEAF, ModeEnum.SIAMESE_30):
+    SUB_TYPES = ['leaf', 'query']
 else:  # ModeEnum.NBoW, ModeEnum.SIAMESE_200
     SUB_TYPES = ['code', 'query']
 
 BATCH_SIZE = 256
-EMBEDDING_SIZE = 128
+EMBEDDING_SIZE = 256
 
 VOCAB_PCT_BPE = 0.5
 VOCAB_SIZE = 10000
