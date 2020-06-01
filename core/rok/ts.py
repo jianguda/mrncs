@@ -61,12 +61,9 @@ class TSNode:
         # return f'({self.type}{sbt4children}){self.type}'
         return f'({self.value}{sbt4children}){self.value}'
 
-    def gen_aux(self):
-        pass
-
 
 class TS:
-    def __init__(self, code, language='python', tree_style='AST', path_style='U2D'):
+    def __init__(self, code, language='python', tree_style='SPT', path_style='L2L'):
         # AST | SPT || HST | HPT
         self.tree_style = tree_style
         # L2L | UD | U2D
@@ -148,7 +145,10 @@ class TS:
         tree_paths = []
         max_path_length = 8
         max_path_width = 2
-        for (u_path, u_value), (v_path, v_value) in combinations(iterable=root_paths, r=2):
+        cases = list(combinations(iterable=root_paths, r=2))
+        # JGD maybe consider some sampling strategies
+        cases = random.sample(cases, min(20, len(cases)))
+        for (u_path, u_value), (v_path, v_value) in cases:
             prefix, lca, suffix = self.merge_paths(u_path, v_path)
             prefix_len = len(prefix)
             suffix_len = len(suffix)
@@ -162,12 +162,9 @@ class TS:
                     middle = '|'.join('U' * prefix_len + 'D' * suffix_len)
                 else:
                     middle = '|U|'.join(prefix) + f'|U|{lca}|D|' + '|D|'.join(suffix)
-                tree_path = middle
-                # tree_path = f'{source},{middle},{target}'
+                # tree_path = middle
+                tree_path = f'{source}|{middle}|{target}'
                 tree_paths.append(tree_path)
-
-        # JGD maybe consider some sampling strategies
-        tree_paths = random.sample(tree_paths, min(20, len(tree_paths)))
 
         if self.debug:
             print(f'{"@" * 9}tree_paths\n{tree_paths}')
@@ -248,12 +245,6 @@ class TS:
         sbt_tokens = list(filter(None, sbt_tokens))
         return sbt_tokens
 
-    def gen_auxiliary_tokens(self):
-        # aux_tree = self.root.gen_aux()
-        # aux_tokens = tree2tokens(aux_tree)
-        # return aux_tokens
-        return self.gen_sbt_representation()
-
 
 def code2identifiers(code, language='python'):
     ts = TS(code, language)
@@ -265,12 +256,6 @@ def code2paths(code, language='python'):
     ts = TS(code, language)
     paths = ts.gen_tree_paths()
     return paths
-
-
-def code2aux(code, language='python'):
-    ts = TS(code, language)
-    aux_tokens = ts.gen_auxiliary_tokens()
-    return aux_tokens
 
 
 def code2sbt(code, language='python'):

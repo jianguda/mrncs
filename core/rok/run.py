@@ -27,17 +27,12 @@ def main():
         name = 'kth-%s-%s' % (shared.MODE_TAG, strftime('%Y-%m-%d'))
         wandb.init(project=project, name=name)
     if 'train' in commands:
-        # JGD (multi-lang)
-        for language in shared.LANGUAGES:
-            print(f'Training {language}')
-            train_model.training(language)
+        train_model.training()
     if 'evaluate' in commands:
-        print('Evaluating')
         evaluate_model.evaluating()
 
 
 # JGD todo
 #  check self-attention
-#  improve multi-lang
 if __name__ == '__main__':
     main()

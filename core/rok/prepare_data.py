@@ -13,7 +13,7 @@ from spacy.lang.en.stop_words import STOP_WORDS
 
 from rok import shared, utils
 from rok.bpevocabulary import BpeVocabulary
-from rok.ts import code2paths, code2identifiers, code2sbt, code2aux
+from rok.ts import code2paths, code2identifiers, code2sbt
 
 IDENTIFIER_TOKEN_REGEX = re.compile('[_a-zA-Z][_a-zA-Z0-9]*')
 IDENTIFIER_CAMEL_CASE_REGEX = re.compile('.+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|$)')
@@ -44,8 +44,6 @@ def preprocess_tokens(tokens: Iterable[str], data_type: str) -> Iterable[List[st
 def doc2tokens(doc, language, data_type, evaluation=True):
     if data_type == 'code':
         tokens = doc['function_tokens' if evaluation else 'code_tokens']
-    elif data_type == 'aux':
-        tokens = code2aux(doc['function' if evaluation else 'code'], language)
     elif data_type == 'leaf':
         tokens = code2identifiers(doc['function' if evaluation else 'code'], language)
     elif data_type == 'path':
@@ -69,7 +67,7 @@ def prepare_corpus_docs(args):
         prepared_doc = dict()
         for data_type in shared.DATA_TYPES:
             tokens = doc2tokens(doc, language, data_type, evaluation=False)
-            prepared_doc.setdefault(data_type, tokens)
+            prepared_doc[data_type] = tokens
         prepared_docs.append(prepared_doc)
 
     utils.dump_docs(prepared_docs, language, data_set)

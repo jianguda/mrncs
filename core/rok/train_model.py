@@ -20,11 +20,9 @@ def get_mm_model():
         input_data, embedding_data = get_embedding_layer(data_type)
         inputs.append(input_data)
         embeddings.append(embedding_data)
-    code_embedding, query_embedding = utils.repack_embeddings(embeddings)
-    merge_layer = Lambda(cosine_similarity, name='cosine_similarity')(
-        [code_embedding, query_embedding]
-    )
+    embeddings = utils.repack_embeddings(embeddings)
 
+    merge_layer = Lambda(cosine_similarity, name='cosine_similarity')(embeddings)
     model = Model(inputs=inputs, outputs=merge_layer)
     model.compile(optimizer=Nadam(), loss=cosine_loss)
     return model
@@ -53,12 +51,9 @@ def get_siamese_base_model(input_shape) -> Model:
 def get_siamese_head_model(embedding_shape) -> Model:
     code_embedding = Input(shape=embedding_shape)
     query_embedding = Input(shape=embedding_shape)
-    siamese_score = Lambda(cosine_similarity, name='cosine_similarity')(
-        [code_embedding, query_embedding]
-    )
-
-    siamese_head_model = Model(
-        inputs=[code_embedding, query_embedding], outputs=siamese_score, name='head_model')
+    embeddings = [code_embedding, query_embedding]
+    siamese_score = Lambda(cosine_similarity, name='cosine_similarity')(embeddings)
+    siamese_head_model = Model(inputs=embeddings, outputs=siamese_score, name='head_model')
     return siamese_head_model
 
 
@@ -71,24 +66,28 @@ def get_siamese_model() -> Model:
 
     code_input = Input(shape=input_shape, name='code_input')
     query_input = Input(shape=input_shape, name='query_input')
+    inputs = [code_input, query_input]
     code_embedding = siamese_base_model(code_input)
     query_embedding = siamese_base_model(query_input)
-    siamese_score = siamese_head_model([code_embedding, query_embedding])
-
-    siamese_model = Model(inputs=[code_input, query_input], outputs=siamese_score)
+    embeddings = [code_embedding, query_embedding]
+    siamese_score = siamese_head_model(embeddings)
+    siamese_model = Model(inputs=inputs, outputs=siamese_score)
     siamese_model.compile(optimizer=Nadam(), loss=cosine_loss)
     return siamese_model
 
 
 # vanilla model
 def get_vanilla_model() -> Model:
-    code_input, code_embedding = get_embedding_layer('code')
-    query_input, query_embedding = get_embedding_layer('query')
-    merge_layer = Lambda(cosine_similarity, name='cosine_similarity')(
-        [code_embedding, query_embedding]
-    )
+    inputs = list()
+    embeddings = list()
+    for data_type in shared.SUB_TYPES:
+        input_data, embedding_data = get_embedding_layer(data_type)
+        inputs.append(input_data)
+        embeddings.append(embedding_data)
+    embeddings = utils.repack_embeddings(embeddings)
 
-    model = Model(inputs=[code_input, query_input], outputs=merge_layer)
+    merge_layer = Lambda(cosine_similarity, name='cosine_similarity')(embeddings)
+    model = Model(inputs=inputs, outputs=merge_layer)
     model.compile(optimizer=Nadam(), loss=cosine_loss)
     return model
 
@@ -195,7 +194,7 @@ def generate_batch(train_seqs_dict, batch_size: int):
         batch_seqs_dict = dict()
         for data_type, encoded_seqs in train_seqs_dict.items():
             batch_encoded_seqs = encoded_seqs[idx:end_idx, :]
-            batch_seqs_dict.setdefault(f'{data_type}_input', batch_encoded_seqs)
+            batch_seqs_dict[f'{data_type}_input'] = batch_encoded_seqs
         # if shared.DATA_ENHANCEMENT:
         #     pairs, labels = create_enhanced_pairs(batch_code_seqs, batch_query_seqs, n_batch_samples)
         #     yield [pairs[:, 0], pairs[:, 1]], labels
@@ -243,26 +242,42 @@ def mask_aware_mean_output_shape(input_shape):
     return shape[0], shape[2]
 
 
-def training(language, verbose=True):
+def train_model(language: str, train_seqs_dict: dict, valid_seqs_dict: dict):
     model = get_model()
-
-    train_seqs_dict = dict()
-    valid_seqs_list = list()
-    for data_type in shared.SUB_TYPES:
-        train_seqs = utils.load_seqs(language, 'train', data_type)
-        train_seqs_dict.setdefault(data_type, train_seqs)
-        valid_seqs = utils.load_seqs(language, 'valid', data_type)
-        valid_seqs_list.append(valid_seqs)
-
     n_samples = list(train_seqs_dict.values())[0].shape[0]
     batch_generator = generate_batch(train_seqs_dict, batch_size=shared.BATCH_SIZE)
-
     additional_callback = [WandbCallback(monitor='val_loss', save_model=False)] if shared.WANDB else []
     model.fit(
-        batch_generator, epochs=200,
+        batch_generator, epochs=200, verbose=2,
         steps_per_epoch=n_samples // shared.BATCH_SIZE,
-        verbose=2 if verbose else -1,
-        callbacks=[evaluate_model.MrrEarlyStopping(valid_seqs_list)] + additional_callback
+        callbacks=[evaluate_model.MrrEarlyStopping(valid_seqs_dict)] + additional_callback
     )
-
     utils.save_model(language, model)
+
+
+def training():
+    print('Training')
+    general_train_seqs_dict = dict()
+    general_valid_seqs_dict = dict()
+    for language in shared.LANGUAGES:
+        train_seqs_dict = dict()
+        valid_seqs_dict = dict()
+        for data_type in shared.SUB_TYPES:
+            # train_seqs
+            train_seqs = utils.load_seqs(language, 'train', data_type)
+            train_seqs_dict[data_type] = train_seqs
+            if data_type in general_train_seqs_dict:
+                general_train_seqs = general_train_seqs_dict[data_type]
+                train_seqs = np.vstack((general_train_seqs, train_seqs))
+            general_train_seqs_dict[data_type] = train_seqs
+            # valid_seqs
+            valid_seqs = utils.load_seqs(language, 'valid', data_type)
+            valid_seqs_dict[data_type] = valid_seqs
+            if data_type in general_valid_seqs_dict:
+                general_valid_seqs = general_valid_seqs_dict[data_type]
+                valid_seqs = np.vstack((general_valid_seqs, valid_seqs))
+            general_valid_seqs_dict[data_type] = valid_seqs
+        if not shared.GENERAL:
+            train_model(language, train_seqs_dict, valid_seqs_dict)
+    if shared.GENERAL:
+        train_model('general', general_train_seqs_dict, general_valid_seqs_dict)

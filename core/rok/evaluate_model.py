@@ -15,41 +15,42 @@ from rok import shared, train_model, utils
 
 
 class MrrEarlyStopping(EarlyStopping):
-    def __init__(self, seqs_list):
+    def __init__(self, seqs_dict: dict):
         super().__init__(monitor='val_mrr', mode='max', restore_best_weights=True, verbose=True, patience=5)
-        self.seqs_list = seqs_list
+        self.seqs_dict = seqs_dict
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
 
-        mean_mrr = compute_mrr(self.model, self.seqs_list)
+        mean_mrr = compute_mrr(self.model, self.seqs_dict)
         print('Mean MRR:', mean_mrr)
         super().on_epoch_end(epoch, {**logs, 'val_mrr': mean_mrr})
 
 
-def get_embeddings(model, seqs_list):
+def get_embeddings(model, seqs_dict: dict, idx_chunk):
     predictors = list()
+    chunk_seqs_list = list()
     for data_type in shared.SUB_TYPES:
         predictor = train_model.get_embedding_predictor(model, data_type)
         predictors.append(predictor)
+        chunk_seqs = seqs_dict.get(data_type)
+        chunk_seqs_list.append(chunk_seqs[idx_chunk, :])
     embeddings_list = list()
-    for embedding_predictor, seqs in zip(predictors, seqs_list):
-        embeddings = embedding_predictor.predict(seqs)
+    for embedding_predictor, chunk_seqs in zip(predictors, chunk_seqs_list):
+        embeddings = embedding_predictor.predict(chunk_seqs)
         embeddings_list.append(embeddings)
     return utils.repack_embeddings(embeddings_list)
 
 
-def compute_mrr(model, seqs_list):
-    n_samples = seqs_list[0].shape[0]
+def compute_mrr(model, seqs_dict: dict):
+    n_samples = seqs_dict.get('query').shape[0]
     indices = list(range(n_samples))
     random.shuffle(indices)
     mrr_scores = []
     for idx_chunk in chunked(indices, shared.BATCH_SIZE):
         if len(idx_chunk) < shared.BATCH_SIZE:
             continue
-
-        chunk_seqs_list = [seqs[idx_chunk, :] for seqs in seqs_list]
-        code_embeddings, query_embeddings = get_embeddings(model, chunk_seqs_list)
+        code_embeddings, query_embeddings = get_embeddings(model, seqs_dict, idx_chunk)
         distance_matrix = cdist(query_embeddings, code_embeddings, 'cosine')
         correct_elements = np.expand_dims(np.diag(distance_matrix), axis=-1)
         ranks = np.sum(distance_matrix <= correct_elements, axis=-1)
@@ -59,13 +60,13 @@ def compute_mrr(model, seqs_list):
 
 
 def emit_mrr_scores(model, language: str):
-    valid_seqs_list = list()
-    test_seqs_list = list()
+    valid_seqs_dict = dict()
+    test_seqs_dict = dict()
     for data_type in shared.SUB_TYPES:
-        valid_seqs_list.append(utils.load_seqs(language, 'valid', data_type))
-        test_seqs_list.append(utils.load_seqs(language, 'test', data_type))
-    valid_mean_mrr = compute_mrr(model, valid_seqs_list)
-    test_mean_mrr = compute_mrr(model, test_seqs_list)
+        valid_seqs_dict[data_type] = utils.load_seqs(language, 'valid', data_type)
+        test_seqs_dict[data_type] = utils.load_seqs(language, 'test', data_type)
+    valid_mean_mrr = compute_mrr(model, valid_seqs_dict)
+    test_mean_mrr = compute_mrr(model, test_seqs_dict)
     return valid_mean_mrr, test_mean_mrr
 
 
@@ -128,16 +129,23 @@ def emit_ndcg_scores(model, language: str):
 
 
 def evaluating():
-    models = dict()
-    for language in shared.LANGUAGES:
-        model = utils.load_model(language, train_model.get_model())
-        models.setdefault(language, model)
+    print('Evaluating')
+    models = None
+    general_model = None
+    if shared.GENERAL:
+        general_model = utils.load_model('general', train_model.get_model())
+    else:
+        models = dict()
+        for language in shared.LANGUAGES:
+            model = utils.load_model(language, train_model.get_model())
+            models[language] = model
 
     # emit_mrr_scores
     valid_mrr_scores = {}
     test_mrr_scores = {}
     for language in shared.LANGUAGES:
-        valid_mean_mrr, test_mean_mrr = emit_mrr_scores(models.get(language), language)
+        model = general_model if shared.GENERAL else models.get(language)
+        valid_mean_mrr, test_mean_mrr = emit_mrr_scores(model, language)
         print(f'{language} - Valid Mean MRR: {valid_mean_mrr}, Test Mean MRR: {test_mean_mrr}')
         valid_mrr_scores[f'{language}_valid_mrr'] = valid_mean_mrr
         test_mrr_scores[f'{language}_test_mrr'] = test_mean_mrr
@@ -157,7 +165,8 @@ def evaluating():
     # emit_ndcg_scores
     predictions = []
     for language in shared.LANGUAGES:
-        prediction = emit_ndcg_scores(models.get(language), language)
+        model = general_model if shared.GENERAL else models.get(language)
+        prediction = emit_ndcg_scores(model, language)
         predictions.extend(prediction)
 
     df_predictions = pd.DataFrame(predictions, columns=['query', 'language', 'identifier', 'url'])

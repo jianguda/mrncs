@@ -7,22 +7,22 @@ import numpy as np
 
 class ModeEnum(Enum):
     NBoW = 0
-    AUX = 1
-    SBT = 2
-    LEAF = 3
+    SBT = 1
+    LEAF = 2
     MM_SBT = 10  # https://arxiv.org/abs/2005.06980
     MM_PATH = 11
     SIAMESE_30 = 20
     SIAMESE_200 = 21
 
 
-MODE = ModeEnum.MM_PATH
+MODE = ModeEnum.LEAF
 MODE_TAG = MODE.name.lower()
 MM = MODE in (ModeEnum.MM_SBT, ModeEnum.MM_PATH)
 SIAMESE = MODE in (ModeEnum.SIAMESE_30, ModeEnum.SIAMESE_200)
 
 WANDB = True
 ANNOY = False  # KNN
+GENERAL = False  # for multi-lang
 ATTENTION = False
 DATA_ENHANCEMENT = False
 
@@ -53,15 +53,13 @@ CORPUS_FILES = {
 
 LANGUAGES = list(sorted(CORPUS_FILES.keys()))
 DATA_SETS = ['train', 'valid', 'test']
-DATA_TYPES = ['code', 'leaf', 'path', 'sbt', 'aux', 'query']
-if MODE is ModeEnum.AUX:
-    SUB_TYPES = ['aux', 'query']
+DATA_TYPES = ['code', 'leaf', 'path', 'sbt', 'query']
 if MODE is ModeEnum.SBT:
     SUB_TYPES = ['sbt', 'query']
 elif MODE is ModeEnum.MM_SBT:
     SUB_TYPES = ['code', 'sbt', 'query']
 elif MODE is ModeEnum.MM_PATH:
-    SUB_TYPES = ['leaf', 'path', 'query']
+    SUB_TYPES = ['code', 'path', 'query']
 elif MODE in (ModeEnum.LEAF, ModeEnum.SIAMESE_30):
     SUB_TYPES = ['leaf', 'query']
 else:  # ModeEnum.NBoW, ModeEnum.SIAMESE_200
