@@ -1,7 +1,6 @@
 import functools
 import itertools
 import operator
-import re
 import string
 from collections import Counter
 from multiprocessing import Pool
@@ -13,32 +12,34 @@ from spacy.lang.en.stop_words import STOP_WORDS
 
 from rok import shared, utils
 from rok.bpevocabulary import BpeVocabulary
-from rok.ts import code2paths, code2identifiers, code2sbt
-
-IDENTIFIER_TOKEN_REGEX = re.compile('[_a-zA-Z][_a-zA-Z0-9]*')
-IDENTIFIER_CAMEL_CASE_REGEX = re.compile('.+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|$)')
-
-
-def extract_sub_tokens(token):
-    sub_tokens = list()
-    for sub_token in re.split('[._]', token):
-        sub_tokens.extend(
-            IDENTIFIER_CAMEL_CASE_REGEX.findall(sub_token)
-            if IDENTIFIER_TOKEN_REGEX.match(sub_token) else [sub_token]
-        )
-
-    sub_tokens = [sub_token.lower().strip() for sub_token in sub_tokens]
-    return [sub_token for sub_token in sub_tokens if len(sub_token) > 0]
+from rok.ts import code2identifiers, code2paths, code2sbt, code2lcrs
+from rok.desensitizer import desensitize, formalize
 
 
 def preprocess_tokens(tokens: Iterable[str], data_type: str) -> Iterable[List[str]]:
     for token in tokens:
-        token = token.lower().strip()
+        if not shared.PROCESSING:
+            yield [token]
+        # mainly for 'code' and 'query'
+        # tokens of 'leaf' have been formalized
+        # tokens of 'path', 'sbt', 'lcrs' have been desensitized
+        if token.isspace():
+            continue
         if token in string.punctuation:
             continue
-        if data_type == 'query' and token in STOP_WORDS:
-            continue
-        yield [token]
+        if token.isdigit():
+            yield ['number']
+        if data_type == 'code':
+            token = desensitize(token)
+            if len(token) <= 1:
+                continue
+        elif data_type == 'query':
+            token = formalize(token)
+            if token in STOP_WORDS:
+                continue
+            if len(token) <= 1:
+                continue
+        yield token.split('|')
 
 
 def doc2tokens(doc, language, data_type, evaluation=True):
@@ -50,6 +51,8 @@ def doc2tokens(doc, language, data_type, evaluation=True):
         tokens = code2paths(doc['function' if evaluation else 'code'], language)
     elif data_type == 'sbt':
         tokens = code2sbt(doc['function' if evaluation else 'code'], language)
+    elif data_type == 'lcrs':
+        tokens = code2lcrs(doc['function' if evaluation else 'code'], language)
     else:  # query
         tokens = doc.split() if evaluation else doc['docstring_tokens']
     return tokens
@@ -59,7 +62,7 @@ def prepare_corpus_docs(args):
     language, data_set = args
     print(f'Building docs for {language} {data_set}')
 
-    if utils.check_docs(language, data_set):
+    if utils.check_doc(language, data_set):
         return
     prepared_docs = list()
     for doc in utils.get_csn_corpus(language, data_set):
@@ -70,84 +73,103 @@ def prepare_corpus_docs(args):
             prepared_doc[data_type] = tokens
         prepared_docs.append(prepared_doc)
 
-    utils.dump_docs(prepared_docs, language, data_set)
+    utils.dump_doc(prepared_docs, language, data_set)
     print(f'Done building for {language} {data_set}')
 
 
-def prepare_vocabs(language):
-    print(f'Building vocabulary for {language}')
+def prepare_corpus_vocabs(args):
+    language, data_type = args
+    print(f'Building vocabulary for {language} {data_type}')
 
-    docs = utils.load_docs(language, 'train')
-    for data_type in shared.SUB_TYPES:
-        if utils.check_vocabs(language, data_type):
-            continue
-        tokens = (utils.flatten(doc[data_type] for doc in docs))
-        tokens = utils.flatten(preprocess_tokens(tokens, data_type))
-        vocabulary = BpeVocabulary(vocab_size=shared.VOCAB_SIZE, pct_bpe=shared.VOCAB_PCT_BPE)
-        vocabulary.fit(Counter(tokens))
-        utils.dump_vocabs(vocabulary, language, data_type)
+    if utils.check_vocab(language, data_type):
+        return
+    docs = utils.load_doc(language, 'train')
+    tokens = (utils.flatten(doc[data_type] for doc in docs))
+    tokens = utils.flatten(preprocess_tokens(tokens, data_type))
+    vocabulary = BpeVocabulary(vocab_size=shared.VOCAB_SIZE, pct_bpe=shared.VOCAB_PCT_BPE)
+    vocabulary.fit(Counter(tokens))
+    utils.dump_vocab(vocabulary, language, data_type)
 
-    print(f'Done building vocabulary for {language}')
+    print(f'Done building vocabulary for {language} {data_type}')
 
 
 def encode_seqs(seqs: Iterable[List[str]], language: str, data_type: str) -> np.ndarray:
     sentences = (utils.flatten(preprocess_tokens(seq, data_type)) for seq in seqs)
-    max_length = utils.get_input_length(data_type)
-    vocabs = utils.load_vocabs(language, data_type)
-    encoded_seqs = vocabs.transform(sentences, fixed_length=max_length)
+    input_length = utils.get_input_length(data_type)
+    vocabs = utils.load_vocab(language, data_type)
+    encoded_seqs = vocabs.transform(sentences, fixed_length=input_length)
     return np.array(list(encoded_seqs))
 
 
-def filter_valid_seqs(encoded_seqs):
-    valid_seqs = (encoded_seq.astype(bool).sum(axis=1) > 0 for encoded_seq in encoded_seqs)
-    valid_indices = functools.reduce(operator.and_, valid_seqs)
-    return encoded_seqs[valid_indices, :]
+def filter_valid_seqs(encoded_seqs_dict: dict):
+    valid_seqs = (encoded_seqs.astype(bool).sum(axis=1) > 0 for encoded_seqs in encoded_seqs_dict.values())
+    valid_seqs_indices = functools.reduce(operator.and_, valid_seqs)
+
+    for data_type in encoded_seqs_dict.keys():
+        encoded_seqs = encoded_seqs_dict.get(data_type)
+        valid_seqs = encoded_seqs[valid_seqs_indices, :]
+        encoded_seqs_dict[data_type] = valid_seqs
+
+    return encoded_seqs_dict
 
 
 def prepare_seqs(args):
     language, data_set = args
     print(f'Building sequences for {language} {data_set}')
 
+    checks = list()
     for data_type in shared.SUB_TYPES:
-        if utils.check_seqs(language, data_set, data_type):
-            continue
+        checks.append(utils.check_seq(language, data_set, data_type))
+    if functools.reduce(operator.and_, checks):
+        # when all exist
+        return
+
+    encoded_seqs_dict = dict()
+    for data_type in shared.SUB_TYPES:
+        if data_set == 'evaluation':
+            if utils.check_seq(language, data_set, data_type):
+                continue
         if data_set == 'evaluation' and data_type == 'query':
             docs = utils.get_csn_queries()
         else:
-            docs = utils.load_docs(language, data_set)
+            docs = utils.load_doc(language, data_set)
         if data_set == 'evaluation':
             seqs = (doc2tokens(doc, language, data_type) for doc in docs)
         else:
             seqs = (doc[data_type] for doc in docs)
         encoded_seqs = encode_seqs(seqs, language, data_type)
-        # Check for invalid sequences
-        if data_set != 'evaluation':
-            encoded_seqs = filter_valid_seqs(encoded_seqs)
-        utils.dump_seqs(encoded_seqs, language, data_set, data_type)
+        encoded_seqs_dict.setdefault(data_type, encoded_seqs)
+    # Check for invalid sequences
+    if data_set != 'evaluation':
+        encoded_seqs_dict = filter_valid_seqs(encoded_seqs_dict)
+    for data_type, encoded_seqs in encoded_seqs_dict.items():
+        utils.dump_seq(encoded_seqs, language, data_set, data_type)
 
     print(f'Done building sequences for {language} {data_set}')
 
 
-def prepare_query_docs(language):
-    print(f'Parsing {language}')
-    data_set = 'evaluation'
-    if utils.check_docs(language, data_set):
+def prepare_query_docs(args):
+    language, data_set = args
+    print(f'Parsing {language} {data_set}')
+    if utils.check_doc(language, data_set):
         return
     evaluation_pkl_path = Path(shared.DATA_DIR) / f'{language}_dedupe_definitions_v2.pkl'
     evaluation_docs = utils.load_pickle(evaluation_pkl_path)
-    utils.dump_docs(evaluation_docs, language, data_set)
+    utils.dump_doc(evaluation_docs, language, data_set)
 
 
 def caching():
+    print('Caching')
+    processors = max(len(shared.LANGUAGES), 4)
     # corpus
-    with Pool(4) as p:
+    with Pool(processors) as p:
         p.map(prepare_corpus_docs, itertools.product(shared.LANGUAGES, shared.DATA_SETS))
-    with Pool(4) as p:
-        p.map(prepare_vocabs, shared.LANGUAGES)
-    with Pool(4) as p:
+    with Pool(processors) as p:
+        p.map(prepare_corpus_vocabs, itertools.product(shared.LANGUAGES, shared.DATA_TYPES))
+    with Pool(processors) as p:
         p.map(prepare_seqs, itertools.product(shared.LANGUAGES, shared.DATA_SETS))
     # query
-    with Pool(4) as p:
-        p.map(prepare_query_docs, shared.LANGUAGES)
-    with Pool(4) as p:
+    with Pool(processors) as p:
+        p.map(prepare_query_docs, itertools.product(shared.LANGUAGES, ['evaluation']))
+    with Pool(processors) as p:
         p.map(prepare_seqs, itertools.product(shared.LANGUAGES, ['evaluation']))

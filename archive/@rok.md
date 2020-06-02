@@ -83,6 +83,7 @@ cd rok
 
 <!-- cd code_search -->
 
+python3 run.py fully
 python3 run.py train evaluate
 
 # switch between siamese and raw

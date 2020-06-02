@@ -13,13 +13,15 @@ from rok.bpevocabulary import BpeVocabulary
 
 def repack_embeddings(embeddings_list):
     if len(embeddings_list) == 3:
-        hybrid_embeddings = tf.math.add_n(embeddings_list[:2])
         # concat-operation is similar to accumulate-operation
         # concat-operation is to concat distributed embeddings
         # accumulate-operation is to concat one-hot embeddings
         # but concat-operation would double the embedding size
         # therefore we prefer to utilize accumulate-operation
+        hybrid_embeddings = tf.math.add_n(embeddings_list[:2])
         # hybrid_embeddings = tf.concat(embeddings_list[:2], axis=-1)
+        # Hadamard product (element-wise) is not the better choice!
+        # hybrid_embeddings = tf.math.multiply(embeddings_list[0], embeddings_list[1])
         query_embeddings = embeddings_list[2]
         return hybrid_embeddings, query_embeddings
     else:
@@ -28,16 +30,30 @@ def repack_embeddings(embeddings_list):
 
 def get_input_length(data_type: str):
     if data_type == 'code':
-        input_length = shared.CODE_MAX_SEQ_LEN
+        input_length = shared.CODE_SEQ_LEN
     elif data_type == 'leaf':
-        input_length = shared.LEAF_MAX_SEQ_LEN
+        input_length = shared.LEAF_SEQ_LEN
     elif data_type == 'path':
-        input_length = shared.PATH_MAX_SEQ_LEN
+        input_length = shared.PATH_SEQ_LEN
     elif data_type == 'sbt':
-        input_length = shared.SBT_MAX_SEQ_LEN
+        input_length = shared.SBT_SEQ_LEN
+    elif data_type == 'lcrs':
+        input_length = shared.LCRS_SEQ_LEN
     else:  # 'query'
-        input_length = shared.QUERY_MAX_SEQ_LEN
+        input_length = shared.QUERY_SEQ_LEN
     return input_length
+
+
+def get_compatible_mode_tag():
+    if shared.ANNOY:
+        mode_tag = 'annoy'
+    elif shared.ATTENTION:
+        mode_tag = 'attention'
+    elif shared.DESENSITIZE:
+        mode_tag = 'desensitize'
+    else:
+        mode_tag = shared.MODE_TAG
+    return mode_tag
 
 
 def flatten(iterable: Iterable[Iterable[str]]) -> Iterable[str]:
@@ -72,7 +88,8 @@ def get_csn_corpus_path(language: str, data_set: str, idx: int) -> str:
 
 def get_csn_corpus(language: str, data_set: str):
     if data_set == 'train':
-        file_paths = [get_csn_corpus_path(language, data_set, idx) for idx in range(shared.CORPUS_FILES[language])]
+        file_paths = [get_csn_corpus_path(language, data_set, idx)
+                      for idx in range(shared.CORPUS_FILES[language])]
     else:
         file_paths = [get_csn_corpus_path(language, data_set, 0)]
 
@@ -86,66 +103,78 @@ def get_csn_queries():
 
 
 # docs
-def _get_docs_path(language: str, data_set: str):
-    docs_filename = shared.DOCS_FILENAME.format(language=language, data_set=data_set)
-    return Path(shared.DOCS_DIR) / docs_filename
+def _get_doc_path(language: str, data_set: str):
+    filename = shared.DOC_FILENAME.format(language=language, data_set=data_set)
+    return Path(shared.DOCS_DIR) / filename
 
 
-def check_docs(language: str, data_set: str) -> bool:
-    path = _get_docs_path(language=language, data_set=data_set)
+def check_doc(language: str, data_set: str) -> bool:
+    path = _get_doc_path(language=language, data_set=data_set)
     return Path(path).exists()
 
 
-def dump_docs(docs, language: str, data_set: str):
-    write_jsonl(docs, _get_docs_path(language=language, data_set=data_set))
+def dump_doc(docs, language: str, data_set: str):
+    write_jsonl(docs, _get_doc_path(language=language, data_set=data_set))
 
 
-def load_docs(language: str, data_set: str):
-    return iter_jsonl(_get_docs_path(language=language, data_set=data_set))
+def load_doc(language: str, data_set: str):
+    return iter_jsonl(_get_doc_path(language=language, data_set=data_set))
 
 
 # vocabs
-def _get_vocabs_path(language: str, data_type: str) -> str:
-    vocabs_filename = shared.VOCABS_FILENAME.format(language=language, data_type=data_type)
-    return Path(shared.VOCABS_DIR) / vocabs_filename
+def _get_vocab_path(language: str, data_type: str) -> str:
+    filename = shared.VOCAB_FILENAME.format(language=language, data_type=data_type)
+    return Path(shared.VOCABS_DIR) / filename
 
 
-def check_vocabs(language: str, data_type: str) -> bool:
-    path = _get_vocabs_path(language=language, data_type=data_type)
+def check_vocab(language: str, data_type: str) -> bool:
+    path = _get_vocab_path(language=language, data_type=data_type)
     return Path(path).exists()
 
 
-def dump_vocabs(vocabulary: BpeVocabulary, language: str, data_type: str):
-    dump_pickle(vocabulary, _get_vocabs_path(language=language, data_type=data_type))
+def dump_vocab(vocabulary: BpeVocabulary, language: str, data_type: str):
+    dump_pickle(vocabulary, _get_vocab_path(language=language, data_type=data_type))
 
 
-def load_vocabs(language: str, data_type: str) -> BpeVocabulary:
-    return load_pickle(_get_vocabs_path(language=language, data_type=data_type))
+def load_vocab(language: str, data_type: str) -> BpeVocabulary:
+    return load_pickle(_get_vocab_path(language=language, data_type=data_type))
 
 
 # seqs
-def _get_seqs_path(language: str, data_set: str, data_type: str) -> str:
-    seqs_filename = shared.SEQS_FILENAME.format(language=language, data_set=data_set, data_type=data_type)
-    return Path(shared.SEQS_DIR) / seqs_filename
+def _get_seq_path(language: str, data_set: str, data_type: str) -> str:
+    if data_set == 'evaluation':
+        length_tag = get_input_length(data_type)
+        filename = shared.SEQ_FILENAME.format(
+            language=language, data_set=data_set, data_type=data_type, mode_tag=length_tag)
+    else:
+        filename = shared.SEQ_FILENAME.format(
+            language=language, data_set=data_set, data_type=data_type, mode_tag=shared.MODE_TAG)
+    return Path(shared.SEQS_DIR) / filename
 
 
-def check_seqs(language: str, data_set: str, data_type: str) -> bool:
-    path = _get_seqs_path(language=language, data_set=data_set, data_type=data_type)
+def check_seq(language: str, data_set: str, data_type: str) -> bool:
+    path = _get_seq_path(language=language, data_set=data_set, data_type=data_type)
     return Path(path).exists()
 
 
-def dump_seqs(seqs: np.ndarray, language: str, data_set: str, data_type: str):
-    np.save(_get_seqs_path(language=language, data_set=data_set, data_type=data_type), seqs)
+def dump_seq(seqs: np.ndarray, language: str, data_set: str, data_type: str):
+    np.save(_get_seq_path(language=language, data_set=data_set, data_type=data_type), seqs)
 
 
-def load_seqs(language: str, data_set: str, data_type: str) -> np.ndarray:
-    return np.load(_get_seqs_path(language=language, data_set=data_set, data_type=data_type))
+def load_seq(language: str, data_set: str, data_type: str) -> np.ndarray:
+    return np.load(_get_seq_path(language=language, data_set=data_set, data_type=data_type))
 
 
 # models
 def _get_model_path(language: str) -> str:
-    models_filename = shared.MODELS_FILENAME.format(language=language)
-    return str(Path(shared.MODELS_DIR) / models_filename)
+    mode_tag = get_compatible_mode_tag()
+    filename = shared.MODEL_FILENAME.format(language=language, mode_tag=mode_tag)
+    return str(Path(shared.MODELS_DIR) / filename)
+
+
+def check_model(language: str) -> bool:
+    path = _get_model_path(language=language)
+    return Path(path).exists() and shared.LAZY
 
 
 def save_model(language: str, model):
@@ -158,14 +187,21 @@ def load_model(language: str, model):
 
 
 # embeddings
-def _get_embeddings_path(language: str, data_type: str):
-    embeddings_filename = shared.EMBEDDINGS_FILENAME.format(language=language, data_type=data_type)
-    return Path(shared.EMBEDDINGS_DIR) / embeddings_filename
+def _get_embedding_path(language: str, data_type: str):
+    mode_tag = get_compatible_mode_tag()
+    filename = shared.EMBEDDING_FILENAME.format(
+        language=language, data_type=data_type, mode_tag=mode_tag)
+    return Path(shared.EMBEDDINGS_DIR) / filename
 
 
-def dump_embeddings(code_embeddings: np.ndarray, language: str, data_type: str):
-    np.save(_get_embeddings_path(language=language, data_type=data_type), code_embeddings)
+def check_embedding(language: str, data_type: str) -> bool:
+    path = _get_embedding_path(language=language, data_type=data_type)
+    return Path(path).exists() and shared.LAZY
 
 
-def load_embeddings(language: str, data_type: str):
-    return np.load(_get_embeddings_path(language=language, data_type=data_type))
+def dump_embedding(code_embeddings: np.ndarray, language: str, data_type: str):
+    np.save(_get_embedding_path(language=language, data_type=data_type), code_embeddings)
+
+
+def load_embedding(language: str, data_type: str):
+    return np.load(_get_embedding_path(language=language, data_type=data_type))

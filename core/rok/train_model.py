@@ -32,15 +32,17 @@ def get_mm_model():
 def get_siamese_base_model(input_shape) -> Model:
     siamese_input = Input(shape=input_shape, name='siamese_input')
     siamese_embedding = Embedding(
-        input_length=shared.SIAMESE_MAX_SEQ_LEN,
+        input_length=shared.SIAMESE_SEQ_LEN,
         input_dim=shared.VOCAB_SIZE,
         output_dim=shared.EMBEDDING_SIZE,
         name='siamese_embedding',
         mask_zero=True)(siamese_input)
     siamese_embedding = ZeroMaskedEntries()(siamese_embedding)
     # siamese_embedding = Dropout(0.5)(siamese_embedding)
+    if shared.ATTENTION:
+        siamese_embedding = SelfAttention(16, shared.EMBEDDING_SIZE)(siamese_embedding)
     siamese_embedding = Lambda(
-        mask_aware_mean, mask_aware_mean_output_shape, name='siamese_embedding_mean'
+        mask_aware_mean, mask_aware_mean_shape, name='siamese_embedding_mean'
     )(siamese_embedding)
     siamese_base_model = Model(
         inputs=siamese_input, outputs=siamese_embedding, name='base_model'
@@ -60,16 +62,17 @@ def get_siamese_head_model(embedding_shape) -> Model:
 def get_siamese_model() -> Model:
     # https://github.com/aspamers/siamese
     # https://keras.io/examples/mnist_siamese/
-    input_shape = (shared.SIAMESE_MAX_SEQ_LEN,)
+    input_shape = (shared.SIAMESE_SEQ_LEN,)
     siamese_base_model = get_siamese_base_model(input_shape)
     siamese_head_model = get_siamese_head_model(siamese_base_model.output_shape)
 
-    code_input = Input(shape=input_shape, name='code_input')
-    query_input = Input(shape=input_shape, name='query_input')
-    inputs = [code_input, query_input]
-    code_embedding = siamese_base_model(code_input)
-    query_embedding = siamese_base_model(query_input)
-    embeddings = [code_embedding, query_embedding]
+    inputs = list()
+    embeddings = list()
+    for data_type in shared.SUB_TYPES:
+        input_data = Input(shape=input_shape, name=f'{data_type}_input')
+        embedding_data = siamese_base_model(input_data)
+        inputs.append(input_data)
+        embeddings.append(embedding_data)
     siamese_score = siamese_head_model(embeddings)
     siamese_model = Model(inputs=inputs, outputs=siamese_score)
     siamese_model.compile(optimizer=Nadam(), loss=cosine_loss)
@@ -148,10 +151,8 @@ def get_embedding_layer(data_type: str):
     # embeddings = Dropout(0.5)(embeddings)
     if shared.ATTENTION:
         embeddings = SelfAttention(16, shared.EMBEDDING_SIZE)(embeddings)
-        # embeddings = Dropout(0.5)(embeddings)
     embeddings = Lambda(
-        mask_aware_mean, mask_aware_mean_output_shape, name=f'{data_type}_embedding_mean')(embeddings)
-
+        mask_aware_mean, mask_aware_mean_shape, name=f'{data_type}_embedding_mean')(embeddings)
     return inputs, embeddings
 
 
@@ -229,20 +230,22 @@ def mask_aware_mean(inputs):
     # recreate the masks - all zero rows have been masked
     mask = backend.not_equal(backend.sum(backend.abs(inputs), axis=2, keepdims=True), 0)
     # number of that rows are not all zeros
-    n = backend.sum(backend.cast(mask, 'float32'), axis=1, keepdims=False)
-    # compute mask-aware mean of x
-    inputs_mean = backend.sum(inputs, axis=1, keepdims=False) / (n + 1E-8)
+    num = backend.sum(backend.cast(mask, 'float32'), axis=1, keepdims=False)
+    # compute mask-aware mean of inputs
+    inputs_mean = backend.sum(inputs, axis=1, keepdims=False) / (num + 1E-8)
 
     return inputs_mean
 
 
-def mask_aware_mean_output_shape(input_shape):
+def mask_aware_mean_shape(input_shape):
     shape = list(input_shape)
     assert len(shape) == 3
     return shape[0], shape[2]
 
 
 def train_model(language: str, train_seqs_dict: dict, valid_seqs_dict: dict):
+    if utils.check_model(language):
+        return
     model = get_model()
     n_samples = list(train_seqs_dict.values())[0].shape[0]
     batch_generator = generate_batch(train_seqs_dict, batch_size=shared.BATCH_SIZE)
@@ -264,14 +267,14 @@ def training():
         valid_seqs_dict = dict()
         for data_type in shared.SUB_TYPES:
             # train_seqs
-            train_seqs = utils.load_seqs(language, 'train', data_type)
+            train_seqs = utils.load_seq(language, 'train', data_type)
             train_seqs_dict[data_type] = train_seqs
             if data_type in general_train_seqs_dict:
                 general_train_seqs = general_train_seqs_dict[data_type]
                 train_seqs = np.vstack((general_train_seqs, train_seqs))
             general_train_seqs_dict[data_type] = train_seqs
             # valid_seqs
-            valid_seqs = utils.load_seqs(language, 'valid', data_type)
+            valid_seqs = utils.load_seq(language, 'valid', data_type)
             valid_seqs_dict[data_type] = valid_seqs
             if data_type in general_valid_seqs_dict:
                 general_valid_seqs = general_valid_seqs_dict[data_type]

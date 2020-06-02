@@ -8,6 +8,14 @@ class SelfAttention(layers.Layer):
         self.output_dim = output_dim
         super().__init__(**kwargs)
 
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({
+            'hidden_dim': self.hidden_dim,
+            'output_dim': self.output_dim,
+        })
+        return config
+
     def build(self, input_shape):
         self.WQ = self.add_weight(name='WQ',
                                   shape=(input_shape[-1], self.hidden_dim),
@@ -30,6 +38,7 @@ class SelfAttention(layers.Layer):
         WV = backend.dot(inputs, self.WV)
         WK = backend.permute_dimensions(WK, (0, 2, 1))
         QK = backend.batch_dot(WQ, WK)
+        # tip: hidden_dim = math.sqrt(input_shape[0])
         QK = QK / (self.hidden_dim ** 0.5)
         QK = backend.softmax(QK)
         outputs = backend.batch_dot(QK, WV)

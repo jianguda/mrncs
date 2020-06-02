@@ -32,7 +32,5 @@ def main():
         evaluate_model.evaluating()
 
 
-# JGD todo
-#  check self-attention
 if __name__ == '__main__':
     main()

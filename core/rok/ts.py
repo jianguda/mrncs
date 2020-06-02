@@ -5,15 +5,22 @@ from queue import Queue
 
 from tree_sitter import Language, Parser
 
+from rok.desensitizer import desensitize, formalize
+
 
 class TSNode:
     def __init__(self):
         self.type = None
         self.value = None
+        # for the form of LC-RS tree
+        self.guardian = None
+        self.left_child = None
+        self.right_sibling = None
+        # for the form of multi-way tree
         self.parent = None
         self.children = list()
 
-    def gen_root_path(self, tree_style='AST'):
+    def gen_root_path(self, tree_style='SPT'):
         ptr = self
         root_path = []
         hpt_ptr = None
@@ -52,14 +59,20 @@ class TSNode:
                     values.extend(ptr.value.split('|'))
                 for child in ptr.children:
                     q.put(child)
-            value = '|'.join(set(values))
+            value = '|'.join(values)
         return root_path, value
 
     def gen_sbt(self):
-        sbt4children = ''.join([child.gen_sbt() for child in self.children])
+        subtree_sbt = ''.join([child.gen_sbt() for child in self.children])
         # we prefer self.value to self.type
-        # return f'({self.type}{sbt4children}){self.type}'
-        return f'({self.value}{sbt4children}){self.value}'
+        # return f'{self.type}({subtree_sbt}){self.type}'
+        return f'{self.value}({subtree_sbt}){self.value}'
+
+    def gen_lcrs(self):
+        left_lcrs = self.left_child.gen_lcrs() if self.left_child else ''
+        right_lcrs = self.right_sibling.gen_lcrs() if self.right_sibling else ''
+        # we prefer mid-order traversal instead of SBT
+        return f'{left_lcrs}({self.value}){right_lcrs}'
 
 
 class TS:
@@ -103,18 +116,32 @@ class TS:
             # lhs is the node we defined
             # rhs is the node TS supplied
             lhs, rhs = q.get()
-            lhs.type = self.normalize(rhs.type)
+            lhs.type = str(rhs.type).lower().strip()
             lhs.value = self.query_token(rhs, code_lines)
             if rhs.children:
-                lhs.value = self.simplify(lhs.value)
+                # non-terminals
+                lhs.value = desensitize(lhs.value)
+                left_sibling = None
                 for rhs_child in rhs.children:
                     lhs_child = TSNode()
+                    # for the form of LC-RS tree
+                    if left_sibling:
+                        lhs_child.guardian = left_sibling
+                        left_sibling.right_sibling = lhs_child
+                    else:
+                        lhs_child.guardian = lhs
+                        lhs.left_child = lhs_child
+                    left_sibling = lhs_child
+                    # for the form of multi-way tree
                     lhs_child.parent = lhs
                     lhs.children.append(lhs_child)
                     q.put((lhs_child, rhs_child))
             else:
+                # terminals
                 lhs.value = self.tokenize(lhs.value)
+                lhs.value = formalize(lhs.value)
                 terminals.append(lhs)
+
         return root, terminals
 
     def gen_identifiers(self):
@@ -124,7 +151,7 @@ class TS:
         for terminal in self.terminals:
             if terminal.type == 'identifier':
                 identifier = terminal.value
-                identifiers.append(identifier)
+                identifiers.extend(identifier.split('|'))
         return identifiers
 
     def gen_root_paths(self):
@@ -143,18 +170,16 @@ class TS:
     def gen_tree_paths(self):
         root_paths = self.gen_root_paths()
         tree_paths = []
-        max_path_length = 8
-        max_path_width = 2
-        cases = list(combinations(iterable=root_paths, r=2))
-        # JGD maybe consider some sampling strategies
-        cases = random.sample(cases, min(20, len(cases)))
+        path_width_threshold = 2
+        path_length_threshold = 8
+        cases = combinations(iterable=root_paths, r=2)
         for (u_path, u_value), (v_path, v_value) in cases:
             prefix, lca, suffix = self.merge_paths(u_path, v_path)
             prefix_len = len(prefix)
             suffix_len = len(suffix)
-            # 1 <= prefix_len and 1 <= suffix_len
-            if prefix_len + 1 + suffix_len <= max_path_length\
-                    and abs(prefix_len - suffix_len) <= max_path_width:
+            if 1 <= prefix_len and 1 <= suffix_len \
+                    and abs(prefix_len - suffix_len) <= path_width_threshold \
+                    and prefix_len + 1 + suffix_len <= path_length_threshold:
                 source, target = u_value, v_value
                 if self.path_style == 'L2L':
                     middle = '|'.join(prefix + [lca] + suffix)
@@ -165,7 +190,8 @@ class TS:
                 # tree_path = middle
                 tree_path = f'{source}|{middle}|{target}'
                 tree_paths.append(tree_path)
-
+        # sampling
+        tree_paths = random.sample(tree_paths, min(25, len(tree_paths)))
         if self.debug:
             print(f'{"@" * 9}tree_paths\n{tree_paths}')
         return tree_paths
@@ -184,35 +210,6 @@ class TS:
         return token
 
     @staticmethod
-    def simplify(token):
-        for keyword in ('if', 'else', 'elif', 'switch', 'case', 'default'):
-            if keyword in token:
-                return 'case'
-        for keyword in ('for', 'while', 'do', 'break', 'continue'):
-            if keyword in token:
-                return 'loop'
-        for keyword in ('{', '}'):
-            if keyword in token:
-                return 'block'
-        for keyword in ('void', 'protected', 'public', 'private', 'function', 'func', 'def'):
-            if keyword in token:
-                return 'method'
-        if '=' in token:
-            return 'assign'
-        elif '.' in token:
-            return 'field'
-        elif '(' in token or ')' in token:
-            return 'invoke'
-        elif '[' in token or ']' in token:
-            return 'access'
-        else:
-            return 'literal'
-
-    @staticmethod
-    def normalize(term):
-        return term.lower()
-
-    @staticmethod
     def tokenize(term):
         def camel_case_split(identifier):
             matches = re.finditer(
@@ -224,7 +221,6 @@ class TS:
         blocks = []
         for underscore_block in term.split('_'):
             blocks.extend(camel_case_split(underscore_block))
-
         return '|'.join(block.lower() for block in blocks)
 
     @staticmethod
@@ -241,14 +237,26 @@ class TS:
 
     def gen_sbt_representation(self):
         sbt_representation = self.root.gen_sbt()
-        sbt_tokens = re.split('[()]', sbt_representation)
+        sbt_tokens = re.split('[(|)]', sbt_representation)
         sbt_tokens = list(filter(None, sbt_tokens))
         return sbt_tokens
+
+    def gen_lcrs_representation(self):
+        try:
+            lcrs_representation = self.root.gen_lcrs()
+            lcrs_tokens = re.split('[(|)]', lcrs_representation)
+            lcrs_tokens = list(filter(None, lcrs_tokens))
+        except RecursionError:
+            # in rare cases, LCRS tree grows rather deep
+            print('RecursionError')
+            return self.gen_sbt_representation()
+        return lcrs_tokens
 
 
 def code2identifiers(code, language='python'):
     ts = TS(code, language)
     identifiers = ts.gen_identifiers()
+    identifiers = [leaf for leaf in identifiers if len(leaf) > 1]
     return identifiers
 
 
@@ -264,66 +272,7 @@ def code2sbt(code, language='python'):
     return sbt_tokens
 
 
-'''
-go@@@@@@@@@code
-func (s *SkuM1Small) GetInnkeeperClient() (innkeeperclient.InnkeeperClient, error) {
-        var err error
-        if s.Client == nil {
-                if clnt, err := s.InitInnkeeperClient(); err == nil {
-                        s.Client = clnt
-                } else {
-                        lo.G.Error("error parsing current cfenv: ", err.Error())
-                }
-        }
-        return s.Client, err
-}
-go@@@@@@@@@sexp
-(source_file (method_declaration receiver: (parameter_list (parameter_declaration name: (identifier) type: (pointer_type (type_identifier)))) name: (field_identifier) parameters: (parameter_list) result: (parameter_list (parameter_declaration type: (qualified_type package: 
-(package_identifier) name: (type_identifier))) (parameter_declaration type: (type_identifier))) body: (block (var_declaration (var_spec name: (identifier) type: (type_identifier))) (if_statement condition: (binary_expression left: (selector_expression operand: (identifier) 
-field: (field_identifier)) right: (nil)) consequence: (block (if_statement initializer: (short_var_declaration left: (expression_list (identifier) (identifier)) right: (expression_list (call_expression function: (selector_expression operand: (identifier) field: (field_identifier)) arguments: (argument_list)))) condition: (binary_expression left: (identifier) right: (nil)) consequence: (block (assignment_statement left: (expression_list (selector_expression operand: (identifier) field: (field_identifier))) right: (expression_list (identifier)))) alternative: (block (call_expression function: (selector_expression operand: (selector_expression operand: (identifier) field: (field_identifier)) field: (field_identifier)) arguments: (argument_list (interpreted_string_literal) (call_expression function: (selector_expression operand: (identifier) field: (field_identifier)) arguments: (argument_list)))))))) (return_statement (expression_list (selector_expression operand: (identifier) field: (field_identifier)) (identifier))))))
-java@@@@@@@@@code
-protected void notifyAttemptToReconnectIn(int seconds) {
-        if (isReconnectionAllowed()) {
-            for (ConnectionListener listener : connection.connectionListeners) {
-                listener.reconnectingIn(seconds);
-            }
-        }
-    }
-java@@@@@@@@@sexp
-(program (local_variable_declaration (modifiers) type: (void_type) declarator: (variable_declarator name: (identifier)) (MISSING ";")) (ERROR (formal_parameters (formal_parameter type: (integral_type) name: (identifier)))) (block (if_statement condition: (parenthesized_expression (method_invocation name: (identifier) arguments: (argument_list))) consequence: (block (enhanced_for_statement type: (type_identifier) name: (identifier) value: (scoped_identifier scope: (identifier) name: (identifier)) body: (block (expression_statement (method_invocation object: (identifier) name: (identifier) arguments: (argument_list (identifier))))))))))
-javascript@@@@@@@@@code
-function (context, grunt) {
-  this.context = context;
-  this.grunt = grunt;
-
-  // Merge task-specific and/or target-specific options with these defaults.
-  this.options = context.options(defaultOptions);
-}
-javascript@@@@@@@@@sexp
-(program (expression_statement (function parameters: (formal_parameters (identifier) (identifier)) body: (statement_block (expression_statement (assignment_expression left: (member_expression object: (this) property: (property_identifier)) right: (identifier))) (expression_statement (assignment_expression left: (member_expression object: (this) property: (property_identifier)) right: (identifier))) (comment) (expression_statement (assignment_expression left: (member_expression object: (this) property: (property_identifier)) right: (call_expression function: (member_expression object: (identifier) property: (property_identifier)) arguments: (arguments (identifier)))))))))      
-php@@@@@@@@@code
-public function init()
-    {
-        parent::init();
-        if ($this->message === null) {
-            $this->message = \Reaction::t('rct', '{attribute} is invalid.');
-        }
-    }
-php@@@@@@@@@sexp
-(program (text))
-python@@@@@@@@@code
-def get_url_args(url):
-    """ Returns a dictionary from a URL params """
-    url_data = urllib.parse.urlparse(url)
-    arg_dict = urllib.parse.parse_qs(url_data.query)
-    return arg_dict
-python@@@@@@@@@sexp
-(module (function_definition name: (identifier) parameters: (parameters (identifier)) body: (block (expression_statement (string)) (expression_statement (assignment left: (expression_list (identifier)) right: (expression_list (call function: (attribute object: (attribute object: (identifier) attribute: (identifier)) attribute: (identifier)) arguments: (argument_list (identifier)))))) (expression_statement (assignment left: (expression_list (identifier)) right: (expression_list (call function: (attribute object: (attribute object: (identifier) attribute: (identifier)) attribute: (identifier)) arguments: (argument_list (attribute object: (identifier) attribute: (identifier))))))) (return_statement (expression_list (identifier))))))
-ruby@@@@@@@@@code
-def part(name)
-      parts.select {|p| p.name.downcase == name.to_s.downcase }.first
-    end
-ruby@@@@@@@@@sexp
-(program (method name: (identifier) parameters: (method_parameters (identifier)) (call receiver: (method_call method: (call receiver: (identifier) method: (identifier)) block: (block (block_parameters (identifier)) (binary left: (call receiver: (call receiver: (identifier) 
-method: (identifier)) method: (identifier)) right: (call receiver: (call receiver: (identifier) method: (identifier)) method: (identifier))))) method: (identifier))))
-'''
+def code2lcrs(code, language='python'):
+    ts = TS(code, language)
+    lcrs_tokens = ts.gen_lcrs_representation()
+    return lcrs_tokens

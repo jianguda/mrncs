@@ -63,8 +63,8 @@ def emit_mrr_scores(model, language: str):
     valid_seqs_dict = dict()
     test_seqs_dict = dict()
     for data_type in shared.SUB_TYPES:
-        valid_seqs_dict[data_type] = utils.load_seqs(language, 'valid', data_type)
-        test_seqs_dict[data_type] = utils.load_seqs(language, 'test', data_type)
+        valid_seqs_dict[data_type] = utils.load_seq(language, 'valid', data_type)
+        test_seqs_dict[data_type] = utils.load_seq(language, 'test', data_type)
     valid_mean_mrr = compute_mrr(model, valid_seqs_dict)
     test_mean_mrr = compute_mrr(model, test_seqs_dict)
     return valid_mean_mrr, test_mean_mrr
@@ -75,21 +75,24 @@ def emit_ndcg_scores(model, language: str):
     print(f'Evaluating {language}')
 
     for data_type in shared.SUB_TYPES:
+        # we always rebuild embeddings when it is using attention
+        if utils.check_embedding(language, data_type) and not shared.ATTENTION:
+            continue
         print(f'Building {data_type} embeddings')
         predictor = train_model.get_embedding_predictor(model, data_type)
-        seqs = utils.load_seqs(language, 'evaluation', data_type)
+        seqs = utils.load_seq(language, 'evaluation', data_type)
         embeddings = predictor.predict(seqs)
-        utils.dump_embeddings(embeddings, language, data_type)
+        utils.dump_embedding(embeddings, language, data_type)
 
     print('Loading embeddings')
     embeddings_list = list()
     for data_type in shared.SUB_TYPES:
-        embeddings = utils.load_embeddings(language, data_type)
+        embeddings = utils.load_embedding(language, data_type)
         embeddings_list.append(embeddings)
 
     code_embeddings, query_embeddings = utils.repack_embeddings(embeddings_list)
     evaluation_docs = [{'url': doc['url'], 'identifier': doc['identifier']}
-                       for doc in utils.load_docs(language, 'evaluation')]
+                       for doc in utils.load_doc(language, 'evaluation')]
 
     print('Indexing embeddings')
     queries = utils.get_csn_queries()
@@ -97,7 +100,8 @@ def emit_ndcg_scores(model, language: str):
         annoy = AnnoyIndex(shared.EMBEDDING_SIZE, 'angular')
         for idx in range(code_embeddings.shape[0]):
             annoy.add_item(idx, code_embeddings[idx, :])
-        annoy.build(200)
+        annoy.build(10)
+        # annoy.build(200)
 
         for query_idx, query in enumerate(queries):
             query_embedding = query_embeddings[query_idx]
