@@ -155,28 +155,48 @@ class TS:
         return identifiers
 
     def gen_root_paths(self):
-        root_paths = list()
-
+        threshold = 20
+        root_paths_1 = list()  # number of qualified leaf node 1
+        root_paths_0 = list()  # number of qualified leaf node 0
         for terminal in self.terminals:
             if terminal.type == 'identifier':
                 root_path, value = terminal.gen_root_path(self.tree_style)
                 if root_path and value:
-                    root_paths.append((root_path, value))
-
+                    if len(value) > 1:
+                        root_paths_1.append((root_path, value))
+                    else:
+                        root_paths_0.append((root_path, value))
+        root_paths = root_paths_1
+        margin = threshold - len(root_paths)
+        if margin < 0:
+            root_paths = random.sample(root_paths, threshold)
+        elif margin > 0:
+            margin = min(margin, len(root_paths_0))
+            root_paths_0 = random.sample(root_paths_0, margin)
+            root_paths.extend(root_paths_0)
         if self.debug:
             print(f'{"@" * 9}root_paths\n{root_paths}')
         return root_paths
 
-    def gen_tree_paths(self):
-        root_paths = self.gen_root_paths()
-        tree_paths = []
+    def gen_leaf_paths(self):
+        threshold = 20
         path_width_threshold = 2
         path_length_threshold = 8
+        root_paths = self.gen_root_paths()
         cases = combinations(iterable=root_paths, r=2)
+        leaf_paths_2 = list()  # number of qualified leaf node 2
+        leaf_paths_1 = list()  # number of qualified leaf node 1
+        leaf_paths_0 = list()  # number of qualified leaf node 0
         for (u_path, u_value), (v_path, v_value) in cases:
             prefix, lca, suffix = self.merge_paths(u_path, v_path)
             prefix_len = len(prefix)
             suffix_len = len(suffix)
+            if threshold <= len(leaf_paths_2):
+                if len(u_value) <= 1 or len(v_value) <= 1:
+                    continue
+            elif threshold <= len(leaf_paths_2) + len(leaf_paths_1):
+                if len(u_value) <= 1 and len(v_value) <= 1:
+                    continue
             if 1 <= prefix_len and 1 <= suffix_len \
                     and abs(prefix_len - suffix_len) <= path_width_threshold \
                     and prefix_len + 1 + suffix_len <= path_length_threshold:
@@ -187,14 +207,31 @@ class TS:
                     middle = '|'.join('U' * prefix_len + 'D' * suffix_len)
                 else:
                     middle = '|U|'.join(prefix) + f'|U|{lca}|D|' + '|D|'.join(suffix)
-                # tree_path = middle
-                tree_path = f'{source}|{middle}|{target}'
-                tree_paths.append(tree_path)
-        # sampling
-        tree_paths = random.sample(tree_paths, min(25, len(tree_paths)))
+                # leaf_path = middle
+                leaf_path = f'{source}|{middle}|{target}'
+                if len(source) > 1 or len(target) > 1:
+                    if len(source) > 1 and len(target) > 1:
+                        leaf_paths_2.append(leaf_path)
+                    else:
+                        leaf_paths_1.append(leaf_path)
+                else:
+                    leaf_paths_0.append(leaf_path)
+        leaf_paths = leaf_paths_2
+        margin = threshold - len(leaf_paths)
+        if margin < 0:
+            leaf_paths = random.sample(leaf_paths, threshold)
+        elif margin > 0:
+            margin = min(margin, len(leaf_paths_1))
+            leaf_paths_1 = random.sample(leaf_paths_1, margin)
+            leaf_paths.extend(leaf_paths_1)
+            margin = threshold - len(leaf_paths)
+            if margin > 0:
+                margin = min(margin, len(leaf_paths_0))
+                leaf_paths_0 = random.sample(leaf_paths_0, margin)
+                leaf_paths.extend(leaf_paths_0)
         if self.debug:
-            print(f'{"@" * 9}tree_paths\n{tree_paths}')
-        return tree_paths
+            print(f'{"@" * 9}leaf_paths\n{leaf_paths}')
+        return leaf_paths
 
     @staticmethod
     def query_token(node, code_lines):
@@ -260,9 +297,18 @@ def code2identifiers(code, language='python'):
     return identifiers
 
 
-def code2paths(code, language='python'):
+def code2paths(code, language='python', mode='rootpath'):
     ts = TS(code, language)
-    paths = ts.gen_tree_paths()
+    paths = list()
+    if mode == 'rootpath':
+        root_paths = ts.gen_root_paths()
+        for (root_path, identifier) in root_paths:
+            paths.extend(root_path)
+            paths.extend(identifier.split('|'))
+    else:
+        leaf_paths = ts.gen_leaf_paths()
+        for leaf_path in leaf_paths:
+            paths.extend(leaf_path.split('|'))
     return paths
 
 

@@ -4,7 +4,7 @@ wandb: (1) Create a W&B account
 wandb: (2) Use an existing W&B account
 wandb: (3) Don't visualize my results
 wandb: Enter your choice: 2
-wandb: You chose 'Use an existing W&B account'
+wandb: You ch ose 'Use an existing W&B account'
 wandb: You can find your API key in your browser here: https://app.wandb.ai/authorize
 wandb: Paste an API key from your profile and hit enter
 wandb: Appending key for api.wandb.ai to your netrc file: /root/.netrc

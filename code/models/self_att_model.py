@@ -15,7 +15,8 @@ class SelfAttentionModel(Model):
             'learning_rate': 5e-4,
             'code_use_subtokens': False,
             'code_mark_subtoken_end': False,
-            'batch_size': 450,
+            'batch_size': 200,  # 450,
+            'max_epochs': 10,
         }
         hypers.update(super().get_default_hyperparameters())
         hypers.update(model_hypers)

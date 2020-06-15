@@ -1,40 +1,78 @@
 # Rok-Python
 
-## Code
+## ANNOY without Processing
 
+\*
+Test Mean MRR: 0.7906951911257625
+NDCG Average: 0.223569048
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/chw0inoh
+
+## KNN without Processing
+
+\*
+Test Mean MRR: 0.7877568093179291
+NDCG Average: 0.411099453
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/blmn0y8s
+
+## Code Cleaning
+
+runtime: 6723.772905111313
 Test Mean MRR: 0.7967517958140593
 NDCG Average: 0.394524412
 https://app.wandb.ai/jianguda/CodeSearchNet/runs/3g3c5yup
 
-## Leaf
+## Code Unifying
 
-(with character tokens)
-Test Mean MRR: 0.7749773010046834
-NDCG Average: 0.338832989
-https://app.wandb.ai/jianguda/CodeSearchNet/runs/3q8zx7iv
+runtime: 1244.5844163894653
+Test Mean MRR: 0.797762800118491
+NDCG Average: 0.389322821
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/1cv4x4gc
 
-(without character tokens)
-Test Mean MRR: 0.773879958489518
-NDCG Average: 0.341708013
-https://app.wandb.ai/jianguda/CodeSearchNet/runs/2d3ibfrc
+# RootPath
 
-# Path
+Test Mean MRR: 0.8487183358335654
+NDCG Average: 0.306738460
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/20qh3egk
 
-Test Mean MRR: 0.7365997784909969
-NDCG Average: 0.232998537
-https://app.wandb.ai/jianguda/CodeSearchNet/runs/kzdwf42d
+Test Mean MRR: 0.8731716354531738
+NDCG Average: 0.387961064
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/bge8n25m
+
+# LeafPath
+
+Test Mean MRR: 0.8009538430807982
+NDCG Average: 0.199155990
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/e9j16p6g
+
+Test Mean MRR: 0.851202844132489
+NDCG Average: 0.305678272
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/2lkmckk9
 
 # SBT
 
-Test Mean MRR: 0.8719220157468446
+\*
+Test Mean MRR: 0.870351434216023
 NDCG Average: 0.241759155
-https://app.wandb.ai/jianguda/CodeSearchNet/runs/1otkcyyb
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/2ojh8s6q
+
+\*
+Test Mean MRR: 0.8869479611364416
+NDCG Average: 0.289411621
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/2cc3q5ds
 
 # LCRS
 
-Test Mean MRR: 0.8401912434092016
+\*
+Test Mean MRR: 0.8382438254524232
 NDCG Average: 0.258056034
-https://app.wandb.ai/jianguda/CodeSearchNet/runs/1k8tnx2q
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/1pkgdd8r
+
+\*
+Test Mean MRR: 0.859835837296484
+NDCG Average: 0.341920832
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/1bpgwbqa
+
+====================================
 
 ## MM_CODE_PATH
 
@@ -78,20 +116,14 @@ Test Mean MRR: 0.7682999397233935
 NDCG Average: 0.353436106
 https://app.wandb.ai/jianguda/CodeSearchNet/runs/24ctddk9
 
-## Desensitization
+## Leaf
 
-Test Mean MRR: 0.797762800118491
-NDCG Average: 0.389322821
-https://app.wandb.ai/jianguda/CodeSearchNet/runs/1cv4x4gc
+(with character tokens)
+Test Mean MRR: 0.7749773010046834
+NDCG Average: 0.338832989
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/3q8zx7iv
 
-## ANNOY without Processing
-
-Test Mean MRR: 0.7906951911257625
-NDCG Average: 0.223569048
-https://app.wandb.ai/jianguda/CodeSearchNet/runs/chw0inoh
-
-## KNN without Processing
-
-Test Mean MRR: 0.7877568093179291
-NDCG Average: 0.411099453
-https://app.wandb.ai/jianguda/CodeSearchNet/runs/blmn0y8s
+(without character tokens)
+Test Mean MRR: 0.773879958489518
+NDCG Average: 0.341708013
+https://app.wandb.ai/jianguda/CodeSearchNet/runs/2d3ibfrc

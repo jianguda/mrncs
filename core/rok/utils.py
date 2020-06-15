@@ -1,3 +1,5 @@
+import functools
+import operator
 import itertools
 import json
 import pickle
@@ -12,35 +14,27 @@ from rok.bpevocabulary import BpeVocabulary
 
 
 def repack_embeddings(embeddings_list):
-    if len(embeddings_list) == 3:
+    if len(embeddings_list) >= 3:
         # concat-operation is similar to accumulate-operation
         # concat-operation is to concat distributed embeddings
         # accumulate-operation is to concat one-hot embeddings
         # but concat-operation would double the embedding size
         # therefore we prefer to utilize accumulate-operation
-        hybrid_embeddings = tf.math.add_n(embeddings_list[:2])
+        hybrid_embeddings = tf.math.add_n(embeddings_list[:-1])
         # hybrid_embeddings = tf.concat(embeddings_list[:2], axis=-1)
         # Hadamard product (element-wise) is not the better choice!
         # hybrid_embeddings = tf.math.multiply(embeddings_list[0], embeddings_list[1])
-        query_embeddings = embeddings_list[2]
+        query_embeddings = embeddings_list[-1]
         return hybrid_embeddings, query_embeddings
     else:
         return embeddings_list
 
 
 def get_input_length(data_type: str):
-    if data_type == 'code':
-        input_length = shared.CODE_SEQ_LEN
-    elif data_type == 'leaf':
-        input_length = shared.LEAF_SEQ_LEN
-    elif data_type == 'path':
-        input_length = shared.PATH_SEQ_LEN
-    elif data_type == 'sbt':
-        input_length = shared.SBT_SEQ_LEN
-    elif data_type == 'lcrs':
-        input_length = shared.LCRS_SEQ_LEN
-    else:  # 'query'
+    if data_type == 'query':
         input_length = shared.QUERY_SEQ_LEN
+    else:  # 'code', 'rootpath', 'leafpath', 'sbt', 'lcrs'
+        input_length = shared.CODE_SEQ_LEN
     return input_length
 
 
@@ -54,6 +48,18 @@ def get_compatible_mode_tag():
     else:
         mode_tag = shared.MODE_TAG
     return mode_tag
+
+
+def filter_valid_seqs(encoded_seqs_dict: dict):
+    valid_seqs = (encoded_seqs.astype(bool).sum(axis=1) > 0 for encoded_seqs in encoded_seqs_dict.values())
+    valid_seqs_indices = functools.reduce(operator.and_, valid_seqs)
+
+    for data_type in encoded_seqs_dict.keys():
+        encoded_seqs = encoded_seqs_dict.get(data_type)
+        valid_seqs = encoded_seqs[valid_seqs_indices, :]
+        encoded_seqs_dict[data_type] = valid_seqs
+
+    return encoded_seqs_dict
 
 
 def flatten(iterable: Iterable[Iterable[str]]) -> Iterable[str]:
@@ -142,13 +148,7 @@ def load_vocab(language: str, data_type: str) -> BpeVocabulary:
 
 # seqs
 def _get_seq_path(language: str, data_set: str, data_type: str) -> str:
-    if data_set == 'evaluation':
-        length_tag = get_input_length(data_type)
-        filename = shared.SEQ_FILENAME.format(
-            language=language, data_set=data_set, data_type=data_type, mode_tag=length_tag)
-    else:
-        filename = shared.SEQ_FILENAME.format(
-            language=language, data_set=data_set, data_type=data_type, mode_tag=shared.MODE_TAG)
+    filename = shared.SEQ_FILENAME.format(language=language, data_set=data_set, data_type=data_type)
     return Path(shared.SEQS_DIR) / filename
 
 

@@ -1,5 +1,5 @@
 `ssh jian@52.142.194.25`
-`Yc912300////`
+`************`
 scp gpu-test.py jian@52.142.194.25:/home/jian/setup
 scp csn-master.zip jian@52.142.194.25:/datadrive
 scp jian@52.142.194.25:/datadrive/csn/parser/build/csn-languages.so ./
@@ -16,7 +16,7 @@ cp -r CodeSearchNet/src CodeSearchNet/code
 # scp terminal
 
 `scp -r code jian@52.142.194.25:/datadrive/`
-`Yc912300////`
+`************`
 
 # ssh terminal
 

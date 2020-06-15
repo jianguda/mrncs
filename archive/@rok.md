@@ -1,5 +1,5 @@
 `ssh jian@40.112.67.232`
-`Yc912300////`
+`************`
 scp gpu-test.py jian@52.142.194.25:/home/jian/setup
 scp csn-master.zip jian@52.142.194.25:/datadrive
 scp jian@52.142.194.25:/datadrive/csn/parser/build/csn-languages.so ./
@@ -17,7 +17,7 @@ sudo rm -rf /datadrive/core
 # scp terminal
 
 `scp -r core jian@40.112.67.232:/datadrive/`
-`Yc912300////`
+`************`
 
 # ssh terminal
 

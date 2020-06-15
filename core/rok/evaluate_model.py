@@ -65,6 +65,9 @@ def emit_mrr_scores(model, language: str):
     for data_type in shared.SUB_TYPES:
         valid_seqs_dict[data_type] = utils.load_seq(language, 'valid', data_type)
         test_seqs_dict[data_type] = utils.load_seq(language, 'test', data_type)
+    # Check for invalid sequences when it is not for evaluation
+    valid_seqs_dict = utils.filter_valid_seqs(valid_seqs_dict)
+    test_seqs_dict = utils.filter_valid_seqs(test_seqs_dict)
     valid_mean_mrr = compute_mrr(model, valid_seqs_dict)
     test_mean_mrr = compute_mrr(model, test_seqs_dict)
     return valid_mean_mrr, test_mean_mrr

@@ -8,17 +8,18 @@ import numpy as np
 class ModeEnum(Enum):
     # NBoW
     CODE = 0  # 200
-    LEAF = 1  # 30
-    PATH = 2  # 200
+    ROOTPATH = 1  # 200
+    LEAFPATH = 2  # 200
     SBT = 3  # 200
     LCRS = 4  # 200
-    # MM
-    MM_CODE_PATH = 10  # 200
-    MM_CODE_SBT = 11  # 200
-    MM_CODE_LCRS = 12  # 200
     # SIAMESE
-    SIAMESE_CODE = 20  # 200
-    SIAMESE_LEAF = 21  # 30
+    SIAMESE_CODE = 10  # 200
+    # MM
+    MM_CODE_ROOTPATH = 11  # 200
+    MM_CODE_LEAFPATH = 12  # 200
+    MM_CODE_SBT = 13  # 200
+    MM_CODE_LCRS = 14  # 200
+    MM_CODE_ROOTPATH_SBT = 25  # 200
 
 
 LAZY = False  # use existing models and evaluation embeddings when available
@@ -32,8 +33,11 @@ DESENSITIZE = False  # recommend: False
 
 MODE = ModeEnum.CODE if PROCESSING else ModeEnum.CODE
 MODE_TAG = MODE.name.lower()
-MM = MODE in (ModeEnum.MM_CODE_PATH, ModeEnum.MM_CODE_SBT, ModeEnum.MM_CODE_LCRS)
-SIAMESE = MODE in (ModeEnum.SIAMESE_CODE, ModeEnum.SIAMESE_LEAF)
+MM = MODE in (
+    ModeEnum.MM_CODE_LEAFPATH, ModeEnum.MM_CODE_ROOTPATH,
+    ModeEnum.MM_CODE_SBT, ModeEnum.MM_CODE_LCRS, ModeEnum.MM_CODE_ROOTPATH_SBT
+)
+SIAMESE = MODE is ModeEnum.SIAMESE_CODE
 
 POSTFIX = '' if PROCESSING else '_legacy'
 ROOT_DIR = Path.cwd().parent
@@ -48,7 +52,7 @@ EMBEDDINGS_DIR = CACHES_DIR / ('embeddings' + POSTFIX)
 
 DOC_FILENAME = '{language}_{data_set}.jsonl'
 VOCAB_FILENAME = '{language}_{data_type}.pkl'
-SEQ_FILENAME = '{language}_{data_set}_{data_type}_{mode_tag}.npy'
+SEQ_FILENAME = '{language}_{data_set}_{data_type}.npy'
 MODEL_FILENAME = '{language}_{mode_tag}.hdf5'
 EMBEDDING_FILENAME = '{language}_{data_type}_{mode_tag}.npy'
 
@@ -63,21 +67,23 @@ CORPUS_FILES = {
 
 LANGUAGES = list(sorted(CORPUS_FILES.keys()))
 DATA_SETS = ['train', 'valid', 'test']
-DATA_TYPES = ['code', 'leaf', 'path', 'sbt', 'lcrs', 'query'] if PROCESSING else ['code', 'query']
-if MODE is ModeEnum.PATH:
-    SUB_TYPES = ['path', 'query']
+DATA_TYPES = ['code', 'rootpath', 'leafpath', 'sbt', 'lcrs', 'query'] if PROCESSING else ['code', 'query']
+if MODE is ModeEnum.ROOTPATH:
+    SUB_TYPES = ['rootpath', 'query']
+elif MODE is ModeEnum.LEAFPATH:
+    SUB_TYPES = ['leafpath', 'query']
 elif MODE is ModeEnum.SBT:
     SUB_TYPES = ['sbt', 'query']
 elif MODE is ModeEnum.LCRS:
     SUB_TYPES = ['lcrs', 'query']
-elif MODE is ModeEnum.MM_CODE_PATH:
-    SUB_TYPES = ['code', 'path', 'query']
+elif MODE is ModeEnum.MM_CODE_ROOTPATH:
+    SUB_TYPES = ['code', 'rootpath', 'query']
+elif MODE is ModeEnum.MM_CODE_LEAFPATH:
+    SUB_TYPES = ['code', 'leafpath', 'query']
 elif MODE is ModeEnum.MM_CODE_SBT:
     SUB_TYPES = ['code', 'sbt', 'query']
 elif MODE is ModeEnum.MM_CODE_LCRS:
     SUB_TYPES = ['code', 'lcrs', 'query']
-elif MODE in (ModeEnum.LEAF, ModeEnum.SIAMESE_LEAF):
-    SUB_TYPES = ['leaf', 'query']
 else:  # ModeEnum.CODE, ModeEnum.SIAMESE_CODE
     SUB_TYPES = ['code', 'query']
 
@@ -87,13 +93,8 @@ EMBEDDING_SIZE = 256
 VOCAB_PCT_BPE = 0.5
 VOCAB_SIZE = 10000
 
-SIAMESE_SEQ_LEN = 200 if MODE is ModeEnum.SIAMESE_CODE else 30
-CODE_SEQ_LEN = SIAMESE_SEQ_LEN if SIAMESE else 200
-LEAF_SEQ_LEN = SIAMESE_SEQ_LEN if SIAMESE else 30
-PATH_SEQ_LEN = SIAMESE_SEQ_LEN if SIAMESE else 200
-SBT_SEQ_LEN = SIAMESE_SEQ_LEN if SIAMESE else 200
-LCRS_SEQ_LEN = SIAMESE_SEQ_LEN if SIAMESE else 200
-QUERY_SEQ_LEN = SIAMESE_SEQ_LEN if SIAMESE else 30
+CODE_SEQ_LEN = 200
+QUERY_SEQ_LEN = 200 if SIAMESE else 30
 
 random.seed(0)
 np.random.seed(0)

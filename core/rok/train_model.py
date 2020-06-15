@@ -280,6 +280,9 @@ def training():
                 general_valid_seqs = general_valid_seqs_dict[data_type]
                 valid_seqs = np.vstack((general_valid_seqs, valid_seqs))
             general_valid_seqs_dict[data_type] = valid_seqs
+        # Check for invalid sequences when it is not for evaluation
+        train_seqs_dict = utils.filter_valid_seqs(train_seqs_dict)
+        valid_seqs_dict = utils.filter_valid_seqs(valid_seqs_dict)
         if not shared.GENERAL:
             train_model(language, train_seqs_dict, valid_seqs_dict)
     if shared.GENERAL:
