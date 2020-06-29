@@ -1,0 +1,24 @@
+{
+    "root": "/mnt/c/Users/jian/PycharmProjects/csn",
+    "program": "submitter.py",
+    "git": {
+        "remote": "https://github.com/jianguda/csn.git",
+        "commit": "1383ea71b170ae0e105d9bdcd80b334fd8eee41a"
+    },
+    "email": "ycaxgjd@gmail.com",
+    "startedAt": "2020-06-17T15:45:27.256451",
+    "host": "PC",
+    "username": "jian",
+    "executable": "/home/linuxbrew/.linuxbrew/opt/python/bin/python3.7",
+    "os": "Linux-4.4.0-18362-Microsoft-x86_64-with-debian-buster-sid",
+    "python": "3.7.4",
+    "cpu_count": 8,
+    "args": [],
+    "state": "finished",
+    "jobType": null,
+    "mode": "run",
+    "name": "CSN-2020-06-17",
+    "project": "CodeSearchNet",
+    "heartbeatAt": "2020-06-17T15:45:29.322529",
+    "exitcode": 0
+}

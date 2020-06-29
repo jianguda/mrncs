@@ -1,0 +1,25 @@
+{
+    "root": "C:/Users/jian/PycharmProjects/csn",
+    "program": "C:/Users/jian/PycharmProjects/csn/core/rok/submitter.py",
+    "git": {
+        "remote": "https://github.com/jianguda/csn.git",
+        "commit": "1383ea71b170ae0e105d9bdcd80b334fd8eee41a"
+    },
+    "email": "jianguda@gmail.com",
+    "codePath": "core\\rok\\submitter.py",
+    "startedAt": "2020-06-17T15:22:49.651453",
+    "host": "PC",
+    "username": "jian",
+    "executable": "C:\\Users\\jian\\AppData\\Local\\Programs\\Python\\Python37\\python.exe",
+    "os": "Windows-10-10.0.18362-SP0",
+    "python": "3.7.7",
+    "cpu_count": 8,
+    "args": [],
+    "state": "finished",
+    "jobType": null,
+    "mode": "dryrun",
+    "name": "CSN-2020-06-17",
+    "project": "CodeSearchNet",
+    "heartbeatAt": "2020-06-17T15:22:51.656021",
+    "exitcode": 0
+}
