@@ -15,6 +15,8 @@ class TSNode:
         self.value = None
         # distinguish with each other even when other info are similar
         self.mark = '@'
+        # distinguish the left child with right siblings (whether eldest compared with siblings)
+        self.eldest = False
         # for the form of LC-RS tree
         self.guardian = None
         self.left_child = None
@@ -65,6 +67,18 @@ class TSNode:
             value = '|'.join(values)
         return root_path, value + self.mark
 
+    def gen_sbt(self):
+        subtree_sbt = ''.join([child.gen_sbt() for child in self.children])
+        # we prefer self.value to self.type
+        # return f'{self.type}({subtree_sbt}){self.type}'
+        return f'{self.value}({subtree_sbt}){self.value}'
+
+    def gen_lcrs(self):
+        left_lcrs = self.left_child.gen_lcrs() if self.left_child else ''
+        right_lcrs = self.right_sibling.gen_lcrs() if self.right_sibling else ''
+        # we prefer mid-order traversal instead of SBT
+        return f'({left_lcrs}({self.value}){right_lcrs})'
+
 
 class TS:
     def __init__(self, code, language='python', tree_style='SPT', path_style='L2L'):
@@ -92,12 +106,13 @@ class TS:
         parser.set_language(Language(csn_so, language))
         tree = parser.parse(code.encode())
         code_lines = code.split('\n')
-        self.root, self.terminals = self.traverse(tree, code_lines)
-        self.nonterminals = list()
-        self.leafpath_terminals = list()
-        self.leafpath_nonterminals = list()
-        self.rootpath_terminals = list()
-        self.rootpath_nonterminals = list()
+        self.root, self.terminals, self.num_eldest = self.traverse(tree, code_lines)
+        self.terminal_nodes = list()
+        self.nonterminal_nodes = list()
+        self.leafpath_terminal_nodes = list()
+        self.leafpath_nonterminal_nodes = list()
+        self.rootpath_terminal_nodes = list()
+        self.rootpath_nonterminal_nodes = list()
         self.debug = False
         if self.debug:
             print(f'{"@" * 9}code\n{code}')
@@ -105,8 +120,9 @@ class TS:
 
     def traverse(self, tree, code_lines):
         q = Queue()
-        terminals = list()
         root = TSNode()
+        terminals = list()
+        eldest_counter = 0
         q.put((root, tree.root_node))
         while not q.empty():
             # lhs is the node we defined
@@ -115,8 +131,9 @@ class TS:
             lhs.type = str(rhs.type).lower().strip()
             lhs.value = self.query_token(rhs, code_lines)
             # mark is "@1~4~1~7" if start_point == (1, 4) and end_point == (1, 7)
-            lhs.mark += '~'.join(rhs.start_point + rhs.end_point)
+            lhs.mark += '~'.join([str(index) for index in rhs.start_point + rhs.end_point])
             if rhs.children:
+                eldest_counter += 1
                 # non-terminals
                 lhs.value = desensitize(lhs.value)
                 left_sibling = None
@@ -140,7 +157,7 @@ class TS:
                 lhs.value = formalize(lhs.value)
                 terminals.append(lhs)
 
-        return root, terminals
+        return root, terminals, eldest_counter
 
     def gen_root_paths(self):
         threshold = 20
@@ -148,7 +165,8 @@ class TS:
         root_paths_0 = list()  # number of qualified leaf node 0
         for terminal in self.terminals:
             root_path, value = terminal.gen_root_path(self.tree_style)
-            self.nonterminals.extend(root_path)
+            self.terminal_nodes.append(value)
+            self.nonterminal_nodes.extend(root_path)
             if terminal.type == 'identifier':
                 if root_path and value:
                     if len(value) > 1:
@@ -166,8 +184,8 @@ class TS:
         if self.debug:
             print(f'{"@" * 9}root_paths\n{root_paths}')
         for root_path, value in root_paths:
-            self.rootpath_terminals.append(value)
-            self.rootpath_nonterminals.extend(root_path)
+            self.rootpath_terminal_nodes.append(value)
+            self.rootpath_nonterminal_nodes.extend(root_path)
         return root_paths
 
     def gen_leaf_paths(self):
@@ -224,42 +242,55 @@ class TS:
         if self.debug:
             print(f'{"@" * 9}leaf_paths\n{leaf_paths}')
         for leaf_path in leaf_paths:
-            source, middle, target = leaf_path.split('|')
-            self.leafpath_terminals.append(source)
-            self.leafpath_terminals.append(target)
-            self.leafpath_nonterminals.extend(middle)
+            source, *middle, target = leaf_path.split('|')
+            self.leafpath_terminal_nodes.append(source)
+            self.leafpath_terminal_nodes.append(target)
+            self.leafpath_nonterminal_nodes.extend(middle)
         return leaf_paths
 
     def stats(self):
         # deduplication
-        self.nonterminals = list(set(self.nonterminals))
-        self.rootpath_nonterminals = list(set(self.rootpath_nonterminals))
-        self.leafpath_nonterminals = list(set(self.leafpath_nonterminals))
-        # path_coverage = len(path_nonterminals) / len(nonterminals)
-        num_nonterminals = len(self.nonterminals)
-        num_rootpath_nonterminals = len(self.rootpath_nonterminals)
-        num_leafpath_nonterminals = len(self.leafpath_nonterminals)
-        path_coverage_rootpath = num_rootpath_nonterminals / num_nonterminals
-        path_coverage_leafpath = num_leafpath_nonterminals / num_nonterminals
+        self.terminal_nodes = list(set(self.terminal_nodes))
+        self.nonterminal_nodes = list(set(self.nonterminal_nodes))
+        self.rootpath_terminal_nodes = list(set(self.rootpath_terminal_nodes))
+        self.rootpath_nonterminal_nodes = list(set(self.rootpath_nonterminal_nodes))
+        self.leafpath_terminal_nodes = list(set(self.leafpath_terminal_nodes))
+        self.leafpath_nonterminal_nodes = list(set(self.leafpath_nonterminal_nodes))
+        # link_coverage =
+        # (num_path_terminal_nodes + num_path_nonterminal_nodes - 1)
+        # / (num_terminal_nodes + num_nonterminal_nodes - 1)
+        num_terminal_nodes = len(self.terminal_nodes)
+        num_nonterminal_nodes = len(self.nonterminal_nodes)
+        num_rootpath_terminal_nodes = len(self.rootpath_terminal_nodes)
+        num_rootpath_nonterminal_nodes = len(self.rootpath_nonterminal_nodes)
+        num_leafpath_terminal_nodes = len(self.leafpath_terminal_nodes)
+        num_leafpath_nonterminal_nodes = len(self.leafpath_nonterminal_nodes)
+        link_coverage_rootpath = (num_rootpath_terminal_nodes + num_rootpath_nonterminal_nodes - 1) / (num_terminal_nodes + num_nonterminal_nodes - 1)
+        link_coverage_leafpath = (num_leafpath_terminal_nodes + num_leafpath_nonterminal_nodes - 1) / (num_terminal_nodes + num_nonterminal_nodes - 1)
+
+        # special: link_coverage_lcrs
+        link_coverage_lcrs = self.num_eldest / (num_terminal_nodes + num_nonterminal_nodes - 1)
 
         # deduplication
-        self.terminals = list(set(self.clean_mark(self.terminals)))
-        self.nonterminals = list(set(self.clean_mark(self.nonterminals)))
-        self.rootpath_terminals = list(set(self.clean_mark(self.rootpath_terminals)))
-        self.rootpath_nonterminals = list(set(self.clean_mark(self.rootpath_nonterminals)))
-        self.leafpath_terminals = list(set(self.clean_mark(self.leafpath_terminals)))
-        self.leafpath_nonterminals = list(set(self.clean_mark(self.leafpath_nonterminals)))
-        # node_coverage = len(path_nonterminals + path_terminals) / len(cleaned_nonterminals + cleaned_terminals)
-        num_terminals = len(self.terminals)
-        num_nonterminals = len(self.nonterminals)
-        num_rootpath_terminals = len(self.rootpath_terminals)
-        num_rootpath_nonterminals = len(self.rootpath_nonterminals)
-        num_leafpath_terminals = len(self.leafpath_terminals)
-        num_leafpath_nonterminals = len(self.leafpath_nonterminals)
-        node_coverage_rootpath = (num_rootpath_terminals + num_rootpath_nonterminals) / (num_terminals + num_nonterminals)
-        node_coverage_leafpath = (num_leafpath_terminals + num_leafpath_nonterminals) / (num_terminals + num_nonterminals)
+        self.terminal_nodes = list(set(self.clean_mark(self.terminal_nodes)))
+        self.nonterminal_nodes = list(set(self.clean_mark(self.nonterminal_nodes)))
+        self.rootpath_terminal_nodes = list(set(self.clean_mark(self.rootpath_terminal_nodes)))
+        self.rootpath_nonterminal_nodes = list(set(self.clean_mark(self.rootpath_nonterminal_nodes)))
+        self.leafpath_terminal_nodes = list(set(self.clean_mark(self.leafpath_terminal_nodes)))
+        self.leafpath_nonterminal_nodes = list(set(self.clean_mark(self.leafpath_nonterminal_nodes)))
+        # node_coverage =
+        # (num_cleaned_path_terminal_nodes + num_cleaned_path_nonterminal_nodes)
+        # / (num_cleaned_terminal_nodes + num_cleaned_nonterminal_nodes)
+        num_terminal_nodes = len(self.terminal_nodes)
+        num_nonterminal_nodes = len(self.nonterminal_nodes)
+        num_rootpath_terminal_nodes = len(self.rootpath_terminal_nodes)
+        num_rootpath_nonterminal_nodes = len(self.rootpath_nonterminal_nodes)
+        num_leafpath_terminal_nodes = len(self.leafpath_terminal_nodes)
+        num_leafpath_nonterminal_nodes = len(self.leafpath_nonterminal_nodes)
+        node_coverage_rootpath = (num_rootpath_terminal_nodes + num_rootpath_nonterminal_nodes) / (num_terminal_nodes + num_nonterminal_nodes)
+        node_coverage_leafpath = (num_leafpath_terminal_nodes + num_leafpath_nonterminal_nodes) / (num_terminal_nodes + num_nonterminal_nodes)
 
-        return path_coverage_rootpath, path_coverage_leafpath, node_coverage_rootpath, node_coverage_leafpath
+        return link_coverage_rootpath, link_coverage_leafpath, link_coverage_lcrs, node_coverage_rootpath, node_coverage_leafpath
 
     @staticmethod
     def clean_mark(nodes):
@@ -305,6 +336,23 @@ class TS:
 
         return prefix, lca, suffix
 
+    def gen_sbt_representation(self):
+        sbt_representation = self.root.gen_sbt()
+        sbt_tokens = re.split('[(|)]', sbt_representation)
+        sbt_tokens = list(filter(None, sbt_tokens))
+        return sbt_tokens
+
+    def gen_lcrs_representation(self):
+        try:
+            lcrs_representation = self.root.gen_lcrs()
+            lcrs_tokens = re.split('[(|)]', lcrs_representation)
+            lcrs_tokens = list(filter(None, lcrs_tokens))
+        except RecursionError:
+            # in rare cases, LCRS tree grows rather deep
+            print('RecursionError')
+            return self.gen_sbt_representation()
+        return lcrs_tokens
+
 
 def code2paths(code, language='python', mode='rootpath'):
     ts = TS(code, language)
@@ -332,8 +380,9 @@ def doc2tokens(doc, language, data_type, evaluation=True):
 
 
 def run_stats(language):
-    sum_path_coverage_rootpath = 0.0
-    sum_path_coverage_leafpath = 0.0
+    sum_link_coverage_rootpath = 0.0
+    sum_link_coverage_leafpath = 0.0
+    sum_link_coverage_lcrs = 0.0
     sum_node_coverage_rootpath = 0.0
     sum_node_coverage_leafpath = 0.0
     train_docs = utils.get_csn_corpus(language, 'train')
@@ -348,24 +397,26 @@ def run_stats(language):
         # because ts.gen_root_paths() will be invoked there
         _ = ts.gen_leaf_paths()
         # stats
-        path_coverage_rootpath, path_coverage_leafpath, node_coverage_rootpath, node_coverage_leafpath = ts.stats()
-        sum_path_coverage_rootpath += path_coverage_rootpath
-        sum_path_coverage_leafpath += path_coverage_leafpath
+        link_coverage_rootpath, link_coverage_leafpath, link_coverage_lcrs, node_coverage_rootpath, node_coverage_leafpath = ts.stats()
+        sum_link_coverage_rootpath += link_coverage_rootpath
+        sum_link_coverage_leafpath += link_coverage_leafpath
+        sum_link_coverage_lcrs += link_coverage_lcrs
         sum_node_coverage_rootpath += node_coverage_rootpath
         sum_node_coverage_leafpath += node_coverage_leafpath
         docs_counter += 1
     print(f'language={language}')
-    avg_path_coverage_rootpath = sum_path_coverage_rootpath / docs_counter
-    avg_path_coverage_leafpath = sum_path_coverage_leafpath / docs_counter
+    avg_link_coverage_rootpath = sum_link_coverage_rootpath / docs_counter
+    avg_link_coverage_leafpath = sum_link_coverage_leafpath / docs_counter
+    avg_link_coverage_lcrs = sum_link_coverage_lcrs / docs_counter
     avg_node_coverage_rootpath = sum_node_coverage_rootpath / docs_counter
     avg_node_coverage_leafpath = sum_node_coverage_leafpath / docs_counter
-    print(f'avg_path_coverage_rootpath={avg_path_coverage_rootpath}')
-    print(f'avg_path_coverage_leafpath={avg_path_coverage_leafpath}')
+    print(f'avg_link_coverage_rootpath={avg_link_coverage_rootpath}')
+    print(f'avg_link_coverage_leafpath={avg_link_coverage_leafpath}')
+    print(f'avg_link_coverage_lcrs={avg_link_coverage_lcrs}')
     print(f'avg_node_coverage_rootpath={avg_node_coverage_rootpath}')
     print(f'avg_node_coverage_leafpath={avg_node_coverage_leafpath}')
 
 
-
 if __name__ == '__main__':
-    run_stats('ruby')
     run_stats('python')
+    run_stats('ruby')

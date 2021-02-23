@@ -72,7 +72,7 @@ class TSNode:
         left_lcrs = self.left_child.gen_lcrs() if self.left_child else ''
         right_lcrs = self.right_sibling.gen_lcrs() if self.right_sibling else ''
         # we prefer mid-order traversal instead of SBT
-        return f'{left_lcrs}({self.value}){right_lcrs}'
+        return f'({left_lcrs}({self.value}){right_lcrs})'
 
 
 class TS:
