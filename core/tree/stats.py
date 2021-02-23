@@ -1,6 +1,6 @@
 import random
 import re
-from itertools import combinations
+from itertools import combinations, chain
 from queue import Queue
 
 from tree_sitter import Language, Parser
@@ -12,6 +12,8 @@ class TSNode:
     def __init__(self):
         self.type = None
         self.value = None
+        # distinguish with each other even when other info are similar
+        self.mark = '@'
         # for the form of LC-RS tree
         self.guardian = None
         self.left_child = None
@@ -29,21 +31,21 @@ class TSNode:
             # AST | SPT || HST | HPT
             if tree_style == 'AST':
                 # abstract syntax tree
-                root_path.append(ptr.type)
+                root_path.append(ptr.type + self.mark)
             elif tree_style == 'SPT':
                 # simplified parse tree
-                root_path.append(ptr.value)
+                root_path.append(ptr.value + self.mark)
             elif tree_style == 'HST':
                 # binary syntax tree
                 # hierarchy syntax tree
-                root_path.append(ptr.type)
+                root_path.append(ptr.type + self.mark)
                 if not hpt_ptr and ptr.type == 'expression_statement':
                     hpt_ptr = ptr
                     root_path = []
             elif tree_style == 'HPT':
                 # binary parse tree
                 # hierarchy parse tree
-                root_path.append(ptr.value)
+                root_path.append(ptr.value + self.mark)
                 if not hpt_ptr and ptr.type == 'expression_statement':
                     hpt_ptr = ptr
                     root_path = []
@@ -60,19 +62,7 @@ class TSNode:
                 for child in ptr.children:
                     q.put(child)
             value = '|'.join(values)
-        return root_path, value
-
-    def gen_sbt(self):
-        subtree_sbt = ''.join([child.gen_sbt() for child in self.children])
-        # we prefer self.value to self.type
-        # return f'{self.type}({subtree_sbt}){self.type}'
-        return f'{self.value}({subtree_sbt}){self.value}'
-
-    def gen_lcrs(self):
-        left_lcrs = self.left_child.gen_lcrs() if self.left_child else ''
-        right_lcrs = self.right_sibling.gen_lcrs() if self.right_sibling else ''
-        # we prefer mid-order traversal instead of SBT
-        return f'{left_lcrs}({self.value}){right_lcrs}'
+        return root_path, value + self.mark
 
 
 class TS:
@@ -102,6 +92,11 @@ class TS:
         tree = parser.parse(code.encode())
         code_lines = code.split('\n')
         self.root, self.terminals = self.traverse(tree, code_lines)
+        self.nonterminals = list()
+        self.leafpath_terminals = list()
+        self.leafpath_nonterminals = list()
+        self.rootpath_terminals = list()
+        self.rootpath_nonterminals = list()
         self.debug = False
         if self.debug:
             print(f'{"@" * 9}code\n{code}')
@@ -118,6 +113,8 @@ class TS:
             lhs, rhs = q.get()
             lhs.type = str(rhs.type).lower().strip()
             lhs.value = self.query_token(rhs, code_lines)
+            # mark is "@1~4~1~7" if start_point == (1, 4) and end_point == (1, 7)
+            lhs.mark += '~'.join(rhs.start_point + rhs.end_point)
             if rhs.children:
                 # non-terminals
                 lhs.value = desensitize(lhs.value)
@@ -144,23 +141,14 @@ class TS:
 
         return root, terminals
 
-    def gen_identifiers(self):
-        # it is to generate the sequence of leaf nodes
-        # it performs better than the set of identifiers
-        identifiers = list()
-        for terminal in self.terminals:
-            if terminal.type == 'identifier':
-                identifier = terminal.value
-                identifiers.extend(identifier.split('|'))
-        return identifiers
-
     def gen_root_paths(self):
         threshold = 20
         root_paths_1 = list()  # number of qualified leaf node 1
         root_paths_0 = list()  # number of qualified leaf node 0
         for terminal in self.terminals:
+            root_path, value = terminal.gen_root_path(self.tree_style)
+            self.nonterminals.extend(root_path)
             if terminal.type == 'identifier':
-                root_path, value = terminal.gen_root_path(self.tree_style)
                 if root_path and value:
                     if len(value) > 1:
                         root_paths_1.append((root_path, value))
@@ -176,6 +164,9 @@ class TS:
             root_paths.extend(root_paths_0)
         if self.debug:
             print(f'{"@" * 9}root_paths\n{root_paths}')
+        for root_path, value in root_paths:
+            self.rootpath_terminals.append(value)
+            self.rootpath_nonterminals.extend(root_path)
         return root_paths
 
     def gen_leaf_paths(self):
@@ -231,7 +222,48 @@ class TS:
                 leaf_paths.extend(leaf_paths_0)
         if self.debug:
             print(f'{"@" * 9}leaf_paths\n{leaf_paths}')
+        for leaf_path in leaf_paths:
+            source, middle, target = leaf_path.split('|')
+            self.leafpath_terminals.append(source)
+            self.leafpath_terminals.append(target)
+            self.leafpath_nonterminals.extend(middle)
         return leaf_paths
+
+    def stats(self):
+        # deduplication
+        self.nonterminals = list(set(self.nonterminals))
+        self.rootpath_nonterminals = list(set(self.rootpath_nonterminals))
+        self.leafpath_nonterminals = list(set(self.leafpath_nonterminals))
+        # path_coverage = len(path_nonterminals) / len(nonterminals)
+        num_nonterminals = len(self.nonterminals)
+        num_rootpath_nonterminals = len(self.rootpath_nonterminals)
+        num_leafpath_nonterminals = len(self.leafpath_nonterminals)
+        path_coverage_rootpath = num_rootpath_nonterminals / num_nonterminals
+        path_coverage_leafpath = num_leafpath_nonterminals / num_nonterminals
+
+        # deduplication
+        self.terminals = list(set(self.clean_mark(self.terminals)))
+        self.nonterminals = list(set(self.clean_mark(self.nonterminals)))
+        self.rootpath_terminals = list(set(self.clean_mark(self.rootpath_terminals)))
+        self.rootpath_nonterminals = list(set(self.clean_mark(self.rootpath_nonterminals)))
+        self.leafpath_terminals = list(set(self.clean_mark(self.leafpath_terminals)))
+        self.leafpath_nonterminals = list(set(self.clean_mark(self.leafpath_nonterminals)))
+        # node_coverage = len(path_nonterminals + path_terminals) / len(cleaned_nonterminals + cleaned_terminals)
+        num_terminals = len(self.terminals)
+        num_nonterminals = len(self.nonterminals)
+        num_rootpath_terminals = len(self.rootpath_terminals)
+        num_rootpath_nonterminals = len(self.rootpath_nonterminals)
+        num_leafpath_terminals = len(self.leafpath_terminals)
+        num_leafpath_nonterminals = len(self.leafpath_nonterminals)
+        node_coverage_rootpath = (num_rootpath_terminals + num_rootpath_nonterminals) / (num_terminals + num_nonterminals)
+        node_coverage_leafpath = (num_leafpath_terminals + num_leafpath_nonterminals) / (num_terminals + num_nonterminals)
+
+        return path_coverage_rootpath, path_coverage_leafpath, node_coverage_rootpath, node_coverage_leafpath
+
+    @staticmethod
+    def clean_mark(nodes):
+        nodes = [node.split('@')[0] for node in nodes]
+        return nodes
 
     @staticmethod
     def query_token(node, code_lines):
@@ -272,30 +304,6 @@ class TS:
 
         return prefix, lca, suffix
 
-    def gen_sbt_representation(self):
-        sbt_representation = self.root.gen_sbt()
-        sbt_tokens = re.split('[(|)]', sbt_representation)
-        sbt_tokens = list(filter(None, sbt_tokens))
-        return sbt_tokens
-
-    def gen_lcrs_representation(self):
-        try:
-            lcrs_representation = self.root.gen_lcrs()
-            lcrs_tokens = re.split('[(|)]', lcrs_representation)
-            lcrs_tokens = list(filter(None, lcrs_tokens))
-        except RecursionError:
-            # in rare cases, LCRS tree grows rather deep
-            print('RecursionError')
-            return self.gen_sbt_representation()
-        return lcrs_tokens
-
-
-def code2identifiers(code, language='python'):
-    ts = TS(code, language)
-    identifiers = ts.gen_identifiers()
-    identifiers = [leaf for leaf in identifiers if len(leaf) > 1]
-    return identifiers
-
 
 def code2paths(code, language='python', mode='rootpath'):
     ts = TS(code, language)
@@ -312,13 +320,51 @@ def code2paths(code, language='python', mode='rootpath'):
     return paths
 
 
-def code2sbt(code, language='python'):
-    ts = TS(code, language)
-    sbt_tokens = ts.gen_sbt_representation()
-    return sbt_tokens
+def doc2tokens(doc, language, data_type, evaluation=True):
+    if data_type == 'code':
+        tokens = doc['function_tokens' if evaluation else 'code_tokens']
+    elif data_type == 'rootpath':
+        tokens = code2paths(doc['function' if evaluation else 'code'], language, mode='rootpath')
+    elif data_type == 'leafpath':
+        tokens = code2paths(doc['function' if evaluation else 'code'], language, mode='leafpath')
+    return tokens
 
 
-def code2lcrs(code, language='python'):
-    ts = TS(code, language)
-    lcrs_tokens = ts.gen_lcrs_representation()
-    return lcrs_tokens
+def run_stats(language):
+    sum_path_coverage_rootpath = 0.0
+    sum_path_coverage_leafpath = 0.0
+    sum_node_coverage_rootpath = 0.0
+    sum_node_coverage_leafpath = 0.0
+    train_docs = utils.get_csn_corpus(language, 'train')
+    valid_docs = utils.get_csn_corpus(language, 'valid')
+    test_docs = utils.get_csn_corpus(language, 'test')
+    docs_counter = 0
+    for doc in chain(train_docs, valid_docs, test_docs):
+        language = doc['language']
+        code = doc['code']
+        ts = TS(code, language)
+        # we only invoke ts.gen_leaf_paths()
+        # because ts.gen_root_paths() will be invoked there
+        _ = ts.gen_leaf_paths()
+        # stats
+        path_coverage_rootpath, path_coverage_leafpath, node_coverage_rootpath, node_coverage_leafpath = ts.stats()
+        sum_path_coverage_rootpath += path_coverage_rootpath
+        sum_path_coverage_leafpath += path_coverage_leafpath
+        sum_node_coverage_rootpath += node_coverage_rootpath
+        sum_node_coverage_leafpath += node_coverage_leafpath
+        docs_counter += 1
+    print(f'language={language}')
+    avg_path_coverage_rootpath = sum_path_coverage_rootpath / docs_counter
+    avg_path_coverage_leafpath = sum_path_coverage_leafpath / docs_counter
+    avg_node_coverage_rootpath = sum_node_coverage_rootpath / docs_counter
+    avg_node_coverage_leafpath = sum_node_coverage_leafpath / docs_counter
+    print(f'avg_path_coverage_rootpath={avg_path_coverage_rootpath}')
+    print(f'avg_path_coverage_leafpath={avg_path_coverage_leafpath}')
+    print(f'avg_node_coverage_rootpath={avg_node_coverage_rootpath}')
+    print(f'avg_node_coverage_leafpath={avg_node_coverage_leafpath}')
+
+
+
+if __name__ == '__main__':
+    run_stats('python')
+    run_stats('ruby')
