@@ -53,7 +53,7 @@ EMBEDDING_FILENAME = '{language}_{data_type}_{mode_tag}.npy'
 encoded_pads_dict = dict()
 # only 1 language should be chosen each time
 CORPUS_FILES = {
-    # 'python': 14,
+    'python': 14,
     'ruby': 2,
     # 'php': 18,
     # 'go': 11,

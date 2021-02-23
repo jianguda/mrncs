@@ -3,6 +3,7 @@ import re
 from itertools import combinations, chain
 from queue import Queue
 
+from tree import utils
 from tree_sitter import Language, Parser
 
 from tree.desensitizer import desensitize, formalize
@@ -366,5 +367,5 @@ def run_stats(language):
 
 
 if __name__ == '__main__':
-    run_stats('python')
     run_stats('ruby')
+    run_stats('python')
