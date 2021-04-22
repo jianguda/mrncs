@@ -1,7 +1,5 @@
 # CSN
 
-The repo is to support my thesis work
-
 Because of the issue in my implementation, I usually run following commands to get results. The results produced by the first run is not correct, so the second run is required. When I have time, I would go to correct this.
 
 ```
