@@ -22,9 +22,6 @@ def terminals(ast, node_index):
                     paths.append((stack.copy(), v_node['value']))
                 elif v_type == 'Num':
                     paths.append((stack.copy(), NUM))
-                else:
-                    pass
-
         if 'children' in v_node:
             for child in v_node['children']:
                 dfs(child)
@@ -102,7 +99,7 @@ def collect_sample(ast, fd_index):
         context = f'{start},{connector},{finish}'
         contexts.append(context)
 
-    if len(contexts) == 0:
+    if not contexts:
         return None
 
     return ' '.join(contexts)
@@ -116,5 +113,4 @@ def tree2paths(tree):
             if sample is not None:
                 samples.append(sample)
 
-    ast_paths = samples[0].strip().split()
-    return ast_paths
+    return samples[0].strip().split()

@@ -53,8 +53,7 @@ def _make_deep_rnn_cell(num_layers: int,
                         cell_type: str,
                         hidden_size: int,
                         dropout_keep_rate: Union[float, tf.Tensor]=1.0,
-                        recurrent_dropout_keep_rate: Union[float, tf.Tensor]=1.0) \
-        -> tf.nn.rnn_cell.RNNCell:
+                        recurrent_dropout_keep_rate: Union[float, tf.Tensor]=1.0) -> tf.nn.rnn_cell.RNNCell:
     """
     Args:
         num_layers: number of layers in result
@@ -68,10 +67,9 @@ def _make_deep_rnn_cell(num_layers: int,
     """
     if num_layers == 1:
         return __make_rnn_cell(cell_type, hidden_size, dropout_keep_rate, recurrent_dropout_keep_rate)
-    else:
-        cells = [__make_rnn_cell(cell_type, hidden_size, dropout_keep_rate, recurrent_dropout_keep_rate)
-                 for _ in range(num_layers)]
-        return tf.nn.rnn_cell.MultiRNNCell(cells)
+    cells = [__make_rnn_cell(cell_type, hidden_size, dropout_keep_rate, recurrent_dropout_keep_rate)
+             for _ in range(num_layers)]
+    return tf.nn.rnn_cell.MultiRNNCell(cells)
 
 
 class AlonEncoder(Encoder):
@@ -94,7 +92,7 @@ class AlonEncoder(Encoder):
     def init_metadata(cls) -> Dict[str, Any]:
         raw_metadata = super().init_metadata()
         # JGD ****** leaf_nodes start ******
-        raw_metadata['identifier'] = list()
+        raw_metadata['identifier'] = []
         raw_metadata['identifier_counter'] = Counter()
         # JGD ****** leaf_nodes end ******
         # JGD ****** tree_paths start ******
@@ -323,8 +321,7 @@ class AlonEncoder(Encoder):
 
     def _encode_with_rnn(self,
                          inputs: tf.Tensor,
-                         input_lengths: tf.Tensor) \
-            -> Tuple[tf.Tensor, tf.Tensor]:
+                         input_lengths: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
         cell_type = self.get_hyper('rnn_cell_type').lower()
         rnn_cell_fwd = _make_deep_rnn_cell(num_layers=self.get_hyper('rnn_num_layers'),
                                            cell_type=cell_type,
@@ -343,7 +340,7 @@ class AlonEncoder(Encoder):
                 final_state = tf.concat([tf.concat(layer_final_state, axis=-1)  # concat c & m of LSTM cell
                                          for layer_final_state in final_states],
                                         axis=-1)  # concat across layers
-            elif cell_type == 'gru' or cell_type == 'rnn':
+            elif cell_type in ['gru', 'rnn']:
                 final_state = tf.concat(final_states, axis=-1)
             else:
                 raise ValueError("Unknown RNN cell type '%s'!" % cell_type)
@@ -368,7 +365,7 @@ class AlonEncoder(Encoder):
                                                    axis=-1)  # concat across layers
                                         for layer_final_states in final_states],
                                         axis=-1)  # concat fwd & bwd
-            elif cell_type == 'gru' or cell_type == 'rnn':
+            elif cell_type in ['gru', 'rnn']:
                 final_state = tf.concat([tf.concat(layer_final_states, axis=-1)  # concat across layers
                                          for layer_final_states in final_states],
                                         axis=-1)  # concat fwd & bwd
@@ -407,15 +404,14 @@ class AlonEncoder(Encoder):
             output_pool_mode = self.get_hyper('rnn_pool_mode').lower()
             if output_pool_mode == 'rnn_final':
                 return rnn_final_state
-            else:
-                token_mask = tf.expand_dims(tf.range(tf.shape(seq_tokens)[1]), axis=0)            # 1 x T
-                token_mask = tf.tile(token_mask, multiples=(tf.shape(seq_tokens_lengths)[0], 1))  # B x T
-                token_mask = tf.cast(token_mask < tf.expand_dims(seq_tokens_lengths, axis=-1),
-                                     dtype=tf.float32)                                            # B x T
-                return pool_sequence_embedding(output_pool_mode,
-                                               sequence_token_embeddings=token_embeddings,
-                                               sequence_lengths=seq_tokens_lengths,
-                                               sequence_token_masks=token_mask)
+            token_mask = tf.expand_dims(tf.range(tf.shape(seq_tokens)[1]), axis=0)            # 1 x T
+            token_mask = tf.tile(token_mask, multiples=(tf.shape(seq_tokens_lengths)[0], 1))  # B x T
+            token_mask = tf.cast(token_mask < tf.expand_dims(seq_tokens_lengths, axis=-1),
+                                 dtype=tf.float32)                                            # B x T
+            return pool_sequence_embedding(output_pool_mode,
+                                           sequence_token_embeddings=token_embeddings,
+                                           sequence_lengths=seq_tokens_lengths,
+                                           sequence_token_masks=token_mask)
         # JGD ****** leaf_nodes end ******
         # JGD ****** tree_paths start ******
         # with tf.variable_scope("alon_encoder"):
@@ -526,10 +522,9 @@ class AlonModel:
         print(f'context_tokens\n{context_tokens.get_shape()}')
         if index in (0, 2):
             max_length = tf.maximum(tf.to_int64(self.MAX_NAME_PARTS), context_tokens.dense_shape[1])
-            print(f'max_length\n{max_length.get_shape()}')
         else:
             max_length = tf.to_int64(self.MAX_PATH_LENGTH)
-            print(f'max_length\n{max_length.get_shape()}')
+        print(f'max_length\n{max_length.get_shape()}')
         # (batch, max_contexts, max_length)
         # (max_contexts, max_length)
         sparse_tokens = tf.sparse.SparseTensor(indices=context_tokens.indices, values=context_tokens.values,
@@ -542,11 +537,10 @@ class AlonModel:
             print(f'dense_tokens\n{dense_tokens.get_shape()}')
             # (max_contexts, max_length)
             token_ids = self.terminal_table.lookup(dense_tokens)
-            print(f'token_ids\n{token_ids.get_shape()}')
         else:
             # (max_contexts, max_length)
             token_ids = self.nonterminal_table.lookup(dense_tokens)
-            print(f'token_ids\n{token_ids.get_shape()}')
+        print(f'token_ids\n{token_ids.get_shape()}')
         # (max_contexts)
         token_lengths = tf.reduce_sum(tf.cast(tf.not_equal(dense_tokens, PAD), tf.int32), -1)
         print(f'token_lengths\n{token_lengths.get_shape()}')

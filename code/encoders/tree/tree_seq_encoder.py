@@ -42,8 +42,7 @@ def _make_deep_rnn_cell(num_layers: int,
                         cell_type: str,
                         hidden_size: int,
                         dropout_keep_rate: Union[float, tf.Tensor]=1.0,
-                        recurrent_dropout_keep_rate: Union[float, tf.Tensor]=1.0) \
-        -> tf.nn.rnn_cell.RNNCell:
+                        recurrent_dropout_keep_rate: Union[float, tf.Tensor]=1.0) -> tf.nn.rnn_cell.RNNCell:
     """
     Args:
         num_layers: number of layers in result
@@ -57,10 +56,9 @@ def _make_deep_rnn_cell(num_layers: int,
     """
     if num_layers == 1:
         return __make_rnn_cell(cell_type, hidden_size, dropout_keep_rate, recurrent_dropout_keep_rate)
-    else:
-        cells = [__make_rnn_cell(cell_type, hidden_size, dropout_keep_rate, recurrent_dropout_keep_rate)
-                 for _ in range(num_layers)]
-        return tf.nn.rnn_cell.MultiRNNCell(cells)
+    cells = [__make_rnn_cell(cell_type, hidden_size, dropout_keep_rate, recurrent_dropout_keep_rate)
+             for _ in range(num_layers)]
+    return tf.nn.rnn_cell.MultiRNNCell(cells)
 
 
 class TreeSeqEncoder(MaskedSeqEncoder):
@@ -103,8 +101,7 @@ class TreeSeqEncoder(MaskedSeqEncoder):
 
     def _encode_with_rnn(self,
                          inputs: tf.Tensor,
-                         input_lengths: tf.Tensor) \
-            -> Tuple[tf.Tensor, tf.Tensor]:
+                         input_lengths: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
         cell_type = self.get_hyper('rnn_cell_type').lower()
         rnn_cell_fwd = _make_deep_rnn_cell(num_layers=self.get_hyper('rnn_num_layers'),
                                            cell_type=cell_type,
@@ -123,7 +120,7 @@ class TreeSeqEncoder(MaskedSeqEncoder):
                 final_state = tf.concat([tf.concat(layer_final_state, axis=-1)  # concat c & m of LSTM cell
                                          for layer_final_state in final_states],
                                         axis=-1)  # concat across layers
-            elif cell_type == 'gru' or cell_type == 'rnn':
+            elif cell_type in ['gru', 'rnn']:
                 final_state = tf.concat(final_states, axis=-1)
             else:
                 raise ValueError("Unknown RNN cell type '%s'!" % cell_type)
@@ -148,7 +145,7 @@ class TreeSeqEncoder(MaskedSeqEncoder):
                                                    axis=-1)  # concat across layers
                                         for layer_final_states in final_states],
                                         axis=-1)  # concat fwd & bwd
-            elif cell_type == 'gru' or cell_type == 'rnn':
+            elif cell_type in ['gru', 'rnn']:
                 final_state = tf.concat([tf.concat(layer_final_states, axis=-1)  # concat across layers
                                          for layer_final_states in final_states],
                                         axis=-1)  # concat fwd & bwd
@@ -202,7 +199,6 @@ class TreeSeqEncoder(MaskedSeqEncoder):
 
     def _single_model(self, is_train: bool = False) -> tf.Tensor:
         model = 'nbow'  # nbow, cnn, rnn, bert
-        attention = False
         embedding = None
         with tf.variable_scope("tree_encoder"):
             self._make_placeholders()
@@ -214,6 +210,7 @@ class TreeSeqEncoder(MaskedSeqEncoder):
             self.placeholders['rnn_recurrent_dropout_keep_rate'] = \
                 tf.placeholder(tf.float32, shape=[], name='rnn_recurrent_dropout_keep_rate')
 
+            attention = False
             if model == 'nbow':
                 seq_tokens_embeddings = self.embedding_layer(self.placeholders['tokens'])
                 seq_token_mask = self.placeholders['tokens_mask']
@@ -311,9 +308,7 @@ class TreeSeqEncoder(MaskedSeqEncoder):
             return embedding
 
     def _complex_model(self, is_train: bool = False) -> tf.Tensor:
-        models = ['nbow', 'rnn']  # nbow, cnn, rnn, bert
-        attention = False
-        embeddings = list()
+        embeddings = []
         with tf.variable_scope("tree_encoder"):
             self._make_placeholders()
 
@@ -325,6 +320,7 @@ class TreeSeqEncoder(MaskedSeqEncoder):
                 tf.placeholder(tf.float32, shape=[], name='rnn_recurrent_dropout_keep_rate')
 
             common_flag = True
+            models = ['nbow', 'rnn']  # nbow, cnn, rnn, bert
             if 'nbow' in models and 'rnn' in models:
                 seq_tokens = self.placeholders['tokens']
                 seq_tokens_embeddings = self.embedding_layer(seq_tokens)
@@ -417,6 +413,7 @@ class TreeSeqEncoder(MaskedSeqEncoder):
                 embeddings.append(embedding)
 
             embeddings = tf.concat(embeddings, axis=-1)
+            attention = False
             if attention:
                 embeddings = Common.self_attention_layer(embeddings)
             # "concat one-hot" is equal to "accumulate embedding"

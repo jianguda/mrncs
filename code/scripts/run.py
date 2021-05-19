@@ -13,7 +13,7 @@ from .ts import code2identifiers, code2paths, code2paths4py, code2sexp
 def paths2tokens(paths):
     paths = [path.split(',') for path in paths]
     terminals = list()
-    nonterminals = list()
+    nonterminals = []
     items = map(lambda x: x[0] + '|' + x[2], paths)
     for item in items:
         terminals.extend(item.split('|'))
@@ -45,12 +45,11 @@ def print_data(terminal_counter, nonterminal_counter):
 # JGD for alon_encoder
 def get_path(language, locally=False):
     if locally:
-        path = Path(f'/home/jian/data/{language}/final/jsonl/train')
-        # path = Path(f'C:\\Users\\jian\\Documents\\Corpus\\{language}\\final\\jsonl\\train')
+        return Path(f'/home/jian/data/{language}/final/jsonl/train')
+            # path = Path(f'C:\\Users\\jian\\Documents\\Corpus\\{language}\\final\\jsonl\\train')
     else:
-        path = Path(f'/home/dev/resources/data/{language}/final/jsonl/train')
-        # path = Path(f'/datadrive/CodeSearchNet/resources/data/{language}/final/jsonl/train')
-    return path
+        return Path(f'/home/dev/resources/data/{language}/final/jsonl/train')
+            # path = Path(f'/datadrive/CodeSearchNet/resources/data/{language}/final/jsonl/train')
 
 
 # JGD for alon_encoder

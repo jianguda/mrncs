@@ -85,14 +85,15 @@ def run_train(model_class: Type[Model],
         # We are in Philly write out the model name in an auxiliary file
         with open(os.path.join(save_folder, philly_job_id+'.job'), 'w') as f:
             f.write(os.path.basename(model.model_save_path))
-    
+
     wandb.config.update(model.hyperparameters)
     model.train_log("Loading training and validation data.")
     train_data = model.load_data_from_dirs(train_data_dirs, is_test=False, max_files_per_dir=max_files_per_dir, parallelize=parallelize)
     valid_data = model.load_data_from_dirs(valid_data_dirs, is_test=False, max_files_per_dir=max_files_per_dir, parallelize=parallelize)
     model.train_log("Begin Training.")
-    model_path = model.train(train_data, valid_data, azure_info_path, quiet=quiet, resume=resume)
-    return model_path
+    return model.train(
+        train_data, valid_data, azure_info_path, quiet=quiet, resume=resume
+    )
 
 
 def make_run_id(arguments: Dict[str, Any]) -> str:

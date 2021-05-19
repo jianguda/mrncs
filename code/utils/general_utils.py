@@ -10,8 +10,7 @@ def save_file_pickle(fname: str, obj: Any) -> None:
 
 def load_file_pickle(fname: str) -> None:
     with open(fname, 'rb') as f:
-        obj = pickle.load(f)
-        return obj
+        return pickle.load(f)
 
 
 def chunkify(df: pd.DataFrame, n: int) -> List[pd.DataFrame]:

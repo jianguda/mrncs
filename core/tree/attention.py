@@ -41,8 +41,7 @@ class SelfAttention(layers.Layer):
         # tip: hidden_dim = math.sqrt(input_shape[0])
         QK = QK / (self.hidden_dim ** 0.5)
         QK = backend.softmax(QK)
-        outputs = backend.batch_dot(QK, WV)
-        return outputs
+        return backend.batch_dot(QK, WV)
 
     def compute_output_shape(self, input_shape):
         return input_shape[0], input_shape[1], self.output_dim

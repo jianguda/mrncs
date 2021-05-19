@@ -14,7 +14,7 @@ class TSNode:
         self.type = None
         self.value = None
         self.parent = None
-        self.children = list()
+        self.children = []
 
     def gen_root_path(self, tree_style='AST'):
         ptr = self
@@ -46,7 +46,7 @@ class TSNode:
         root_path = list(reversed(root_path))
         value = self.value
         if hpt_ptr:
-            values = list()
+            values = []
             q = Queue()
             q.put(hpt_ptr)
             while not q.empty():
@@ -95,7 +95,7 @@ class TS:
     def traverse(self, tree, code_lines):
         q = Queue()
         root = TSNode()
-        terminals = list()
+        terminals = []
         q.put((root, tree.root_node))
         while not q.empty():
             # lhs is the node we defined
@@ -118,7 +118,7 @@ class TS:
     def gen_identifiers(self):
         # it is to generate the sequence of leaf nodes
         # it performs better than the set of identifiers
-        identifiers = list()
+        identifiers = []
         for terminal in self.terminals:
             if terminal.type == 'identifier':
                 identifier = terminal.value
@@ -126,7 +126,7 @@ class TS:
         return identifiers
 
     def gen_root_paths(self):
-        root_paths = list()
+        root_paths = []
 
         for terminal in self.terminals:
             if terminal.type == 'identifier':
@@ -176,10 +176,9 @@ class TS:
         char_end = node.end_point[1]
 
         if line_start != line_end:
-            token = code_lines[line_start][char_start:]
+            return code_lines[line_start][char_start:]
         else:
-            token = code_lines[line_start][char_start:char_end]
-        return token
+            return code_lines[line_start][char_start:char_end]
 
     @staticmethod
     def simplify(token):
@@ -241,22 +240,19 @@ class TS:
 # using TreeSitter, for all 6 languages
 def code2identifiers(code, language='python'):
     ts = TS(code, language)
-    identifiers = ts.gen_identifiers()
-    return identifiers
+    return ts.gen_identifiers()
 
 
 # using TreeSitter, for all 6 languages
 def code2paths(code, language='python'):
     ts = TS(code, language)
-    paths = ts.gen_tree_paths()
-    return paths
+    return ts.gen_tree_paths()
 
 
 # using Python's AST module, only for Python
 def code2paths4py(code):
     tree = code2tree(code)
-    paths = tree2paths(tree)
-    return paths
+    return tree2paths(tree)
 
 
 # check s-exp

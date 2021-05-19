@@ -187,11 +187,20 @@ class SeqEncoder(Encoder):
             result_holder[f'{encoder_label}_tokens_mask_{key}'] = tokens_mask
             result_holder[f'{encoder_label}_tokens_length_{key}'] = int(np.sum(tokens_mask))
 
-        if result_holder[f'{encoder_label}_tokens_mask_{QueryType.DOCSTRING.value}'] is None or \
-                int(np.sum(result_holder[f'{encoder_label}_tokens_mask_{QueryType.DOCSTRING.value}'])) == 0:
-            return False
-
-        return True
+        return (
+            result_holder[
+                f'{encoder_label}_tokens_mask_{QueryType.DOCSTRING.value}'
+            ]
+            is not None
+            and int(
+                np.sum(
+                    result_holder[
+                        f'{encoder_label}_tokens_mask_{QueryType.DOCSTRING.value}'
+                    ]
+                )
+            )
+            != 0
+        )
 
     def extend_minibatch_by_sample(self, batch_data: Dict[str, Any], sample: Dict[str, Any], is_train: bool=False,
                                    query_type: QueryType = QueryType.DOCSTRING.value) -> bool:

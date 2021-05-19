@@ -41,12 +41,22 @@ def jsonl_to_df(input_folder: RichPath) -> pd.DataFrame:
     "Concatenates all jsonl files from path and returns them as a single pandas.DataFrame ."
 
     assert input_folder.is_dir(), 'Argument supplied must be a directory'
-    dfs = []
     files = list(input_folder.iterate_filtered_files_in_dir('*.jsonl.gz'))
     assert files, 'There were no jsonl.gz files in the specified directory.'
     print(f'reading files from {input_folder.path}')
-    for f in tqdm(files, total=len(files)):
-        dfs.append(pd.DataFrame(list(f.read_as_jsonl(error_handling=lambda m,e: print(f'Error while loading {m} : {e}')))))
+    dfs = [
+        pd.DataFrame(
+            list(
+                f.read_as_jsonl(
+                    error_handling=lambda m, e: print(
+                        f'Error while loading {m} : {e}'
+                    )
+                )
+            )
+        )
+        for f in tqdm(files, total=len(files))
+    ]
+
     return pd.concat(dfs)
 
 

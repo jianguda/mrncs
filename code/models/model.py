@@ -540,11 +540,9 @@ class Model(ABC):
         batch_data['per_language_query_data'] = {}
         batch_data['per_language_code_data'] = {}
         for (language, language_encoder) in self.__code_encoders.items():
-            batch_data['per_language_query_data'][language] = {}
-            batch_data['per_language_query_data'][language]['query_sample_ids'] = []
+            batch_data['per_language_query_data'][language] = {'query_sample_ids': []}
             self.__query_encoder.init_minibatch(batch_data['per_language_query_data'][language])
-            batch_data['per_language_code_data'][language] = {}
-            batch_data['per_language_code_data'][language]['code_sample_ids'] = []
+            batch_data['per_language_code_data'][language] = {'code_sample_ids': []}
             language_encoder.init_minibatch(batch_data['per_language_code_data'][language])
         return batch_data
 
@@ -643,8 +641,7 @@ class Model(ABC):
                                       include_query: bool = True,
                                       include_code: bool = True,
                                       drop_incomplete_final_minibatch: bool = True,
-                                      compute_language_weightings: bool = False) \
-            -> Iterable[Tuple[Dict[tf.Tensor, Any], Any, int, List[SampleId]]]:
+                                      compute_language_weightings: bool = False) -> Iterable[Tuple[Dict[tf.Tensor, Any], Any, int, List[SampleId]]]:
         """
         Take tensorised data and chunk into feed dictionaries corresponding to minibatches.
 
@@ -695,7 +692,7 @@ class Model(ABC):
         total_samples_used = 0
         batch_data = self.__init_minibatch()
 
-        while len(language_to_num_remaining_samples) > 0:
+        while language_to_num_remaining_samples:
             # Pick a language for the sample, by weighted sampling over the remaining data points:
             remaining_languages = list(language_to_num_remaining_samples.keys())
             total_num_remaining_samples = sum(language_to_num_remaining_samples.values())

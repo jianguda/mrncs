@@ -50,7 +50,7 @@ SEQ_FILENAME = '{language}_{data_set}_{data_type}.npy'
 MODEL_FILENAME = '{language}_{mode_tag}.hdf5'
 EMBEDDING_FILENAME = '{language}_{data_type}_{mode_tag}.npy'
 
-encoded_pads_dict = dict()
+encoded_pads_dict = {}
 # only 1 language should be chosen each time
 CORPUS_FILES = {
     'python': 14,

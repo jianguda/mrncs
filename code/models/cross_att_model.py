@@ -158,8 +158,7 @@ class CrossAttentionModel(Model):
 
     def reshape_to_matrix(self, input_tensor):
         width = input_tensor.shape[-1]
-        output_tensor = tf.reshape(input_tensor, [-1, width])
-        return output_tensor
+        return tf.reshape(input_tensor, [-1, width])
 
     def attention_layer(self, from_tensor, to_tensor, attention_mask, hidden_size=128):
         # from_tensor --> [B,F,H]
@@ -372,14 +371,3 @@ class CrossAttentionModel(Model):
         computed_representations = np.concatenate(computed_representations, axis=0)
         #print("len(computed_representations): {}".format(len(computed_representations)))
         return computed_representations
-
-        #print("len(computed_representations): {}".format(len(computed_representations)))
-        tensorised_data_id_to_representation_idx = {tensorised_data_id: repr_idx
-                                                    for (repr_idx, tensorised_data_id) in enumerate(original_tensorised_data_ids)}
-        reordered_representations: List = []
-        for tensorised_data_id in sample_to_tensorised_data_id:
-            if tensorised_data_id is None:
-                reordered_representations.append(None)
-            else:
-                reordered_representations.append(computed_representations[tensorised_data_id_to_representation_idx[tensorised_data_id]])
-        return reordered_representations

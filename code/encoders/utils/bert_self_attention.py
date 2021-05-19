@@ -97,8 +97,7 @@ class BertConfig(object):
 
   def to_dict(self):
     """Serializes this instance to a Python dictionary."""
-    output = copy.deepcopy(self.__dict__)
-    return output
+    return copy.deepcopy(self.__dict__)
 
   def to_json_string(self):
     """Serializes this instance to a JSON string."""
@@ -312,8 +311,7 @@ def dropout(input_tensor, dropout_prob):
   if dropout_prob is None or dropout_prob == 0.0:
     return input_tensor
 
-  output = tf.nn.dropout(input_tensor, 1.0 - dropout_prob)
-  return output
+  return tf.nn.dropout(input_tensor, 1.0 - dropout_prob)
 
 
 def layer_norm(input_tensor, name=None):
@@ -474,9 +472,7 @@ def embedding_postprocessor(input_tensor,
     # Only the last two dimensions are relevant (`seq_length` and `width`), so
     # we broadcast among the first dimensions, which is typically just
     # the batch size.
-    position_broadcast_shape = []
-    for _ in range(num_dims - 2):
-      position_broadcast_shape.append(1)
+    position_broadcast_shape = [1 for _ in range(num_dims - 2)]
     position_broadcast_shape.extend([seq_length, width])
     position_embeddings = tf.reshape(position_embeddings,
                                      position_broadcast_shape)
@@ -880,11 +876,9 @@ def get_shape_list(tensor, expected_rank=None, name=None):
 
   shape = tensor.shape.as_list()
 
-  non_static_indexes = []
-  for (index, dim) in enumerate(shape):
-    if dim is None:
-      non_static_indexes.append(index)
-
+  non_static_indexes = [
+      index for (index, dim) in enumerate(shape) if dim is None
+  ]
   if not non_static_indexes:
     return shape
 
@@ -904,8 +898,7 @@ def reshape_to_matrix(input_tensor):
     return input_tensor
 
   width = input_tensor.shape[-1]
-  output_tensor = tf.reshape(input_tensor, [-1, width])
-  return output_tensor
+  return tf.reshape(input_tensor, [-1, width])
 
 
 def reshape_from_matrix(output_tensor, orig_shape_list):

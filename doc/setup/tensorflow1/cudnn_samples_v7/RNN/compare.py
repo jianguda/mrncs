@@ -54,8 +54,7 @@ def _get_tolerance_line(line):
     key = stmp[0]
     _type, _val = stmp[1].split(',')
     _type = _type.split('=')[-1]
-    tol={key:{'type':_type, 'val':float(_val)}}
-    return tol
+    return {key:{'type':_type, 'val':float(_val)}}
 
 def get_results_from_file(fname, golden=False):
     assert fname, 'No file name given!'
@@ -86,15 +85,10 @@ def get_valpat_line(line):
     for idx, key in enumerate(keys):
         Ndat = datnum[idx]
         if isinstance(key, tuple):
-            format_expr = {}
-            for j in range(Ndat):
-                format_expr['key%d'%(j+1)] = keys[idx][j]
+            format_expr = {'key%d'%(j+1): keys[idx][j] for j in range(Ndat)}
             ret = re.search(patterns[pats[idx]].format(**format_expr), line)
             if ret:
-                vals = {}
-                for j in range(Ndat):
-                    vals[key[j]] = ret.group(j+1)
-                return vals
+                return {key[j]: ret.group(j+1) for j in range(Ndat)}
         else:
             ret = re.search(patterns[pats[idx]].format(key=key), line)
             if ret:

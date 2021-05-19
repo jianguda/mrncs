@@ -67,7 +67,7 @@ def tokenize_python_from_string(code: str,
         # parse arbitrary snippets of code that are not functions if func_only = False
         if not func_only:
             func_nodes = [parsed_ast]
-        
+
         for func_node in func_nodes:  # There should only be one, but we can process more...
             doc_node = func_node.get_doc_node()
             leaf_node = func_node.get_first_leaf()
@@ -87,16 +87,13 @@ def tokenize_python_from_string(code: str,
                     break
 
                 # Third, record code tokens:
-                if not(IS_WHITESPACE_REGEX.match(leaf_node.value)):
-                    if only_ids:
-                        if leaf_node.type == 'name':
-                            code_tokens.append(leaf_node.value)
-                    else:
-                        if leaf_node.type == 'keyword':
-                            if add_keywords:
-                                code_tokens.append(leaf_node.value)
-                        else:
-                            code_tokens.append(leaf_node.value)
+                if not (IS_WHITESPACE_REGEX.match(leaf_node.value)) and (
+                    only_ids
+                    and leaf_node.type == 'name'
+                    or not only_ids
+                    and (add_keywords or leaf_node.type != 'keyword')
+                ):
+                    code_tokens.append(leaf_node.value)
                 leaf_node = leaf_node.get_next_leaf()
         return ParsedCode(code_tokens=code_tokens, comment_tokens=comment_tokens)
     except Exception as e:
@@ -183,20 +180,19 @@ def parse_raw_data_into_function_list(blob, require_docstring: bool=True):
         for function_def in function_defs:
             function_name = function_def.name.value
             docstring_node = function_def.get_doc_node()
-            if docstring_node is None:
-                docstring = ''
-            else:
-                docstring = docstring_node.value
+            docstring = '' if docstring_node is None else docstring_node.value
             first_docstring_line = docstring.split('\n\s*\n')[0]
 
             # We now need to un-indent the code which may have come from a class. For that, identify how far
             # we are indented, and try to to remove that from all lines:
             function_code = function_def.get_code()
             def_prefix = list(function_def.get_first_leaf()._split_prefix())[-1].value
-            trimmed_lines = []
-            for line in function_code.splitlines():
-                if line.startswith(def_prefix):
-                    trimmed_lines.append(line[len(def_prefix):])
+            trimmed_lines = [
+                line[len(def_prefix) :]
+                for line in function_code.splitlines()
+                if line.startswith(def_prefix)
+            ]
+
             function_code = '\n'.join(trimmed_lines)
 
             should_use_function = not (re.search(r'(__.+__)|(.*test.*)|(.*Test.*)', function_name) or  # skip __*__ methods and test code

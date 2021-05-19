@@ -117,15 +117,16 @@ class BertLayer(Layer):
         # Remove unused layers
         trainable_vars = self.bert.variables
         if self.pooling == "first":
-            trainable_vars = [var for var in trainable_vars if not "/cls/" in var.name]
+            trainable_vars = [var for var in trainable_vars if "/cls/" not in var.name]
             trainable_layers = ["pooler/dense"]
 
         elif self.pooling == "mean":
             trainable_vars = [
                 var
                 for var in trainable_vars
-                if not "/cls/" in var.name and not "/pooler/" in var.name
+                if "/cls/" not in var.name and "/pooler/" not in var.name
             ]
+
             trainable_layers = []
         else:
             raise NameError(
@@ -140,8 +141,9 @@ class BertLayer(Layer):
         trainable_vars = [
             var
             for var in trainable_vars
-            if any([l in var.name for l in trainable_layers])
+            if any(l in var.name for l in trainable_layers)
         ]
+
 
         # Add to trainable weights
         for var in trainable_vars:
@@ -300,7 +302,7 @@ def get_embedding_predictor(model, data_type: str):
 
 def get_model() -> Model:
     inputs = list()
-    embeddings = list()
+    embeddings = []
     for data_type in shared.SUB_TYPES:
         if shared.CONTEXT:
             if shared.BERT1:
@@ -339,7 +341,7 @@ def generate_batch(train_seqs_dict, batch_size: int):
         end_idx = min(idx + batch_size, n_samples)
         n_batch_samples = min(batch_size, end_idx - idx)
 
-        batch_seqs_dict = dict()
+        batch_seqs_dict = {}
         for data_type, encoded_seqs in train_seqs_dict.items():
             batch_encoded_seqs = encoded_seqs[idx:end_idx, :]
             if shared.CONTEXT and shared.BERT1:
@@ -420,7 +422,7 @@ def training():
     print('Training')
     for language in shared.LANGUAGES:
         train_seqs_dict = dict()
-        valid_seqs_dict = dict()
+        valid_seqs_dict = {}
         for data_type in shared.SUB_TYPES:
             # train_seqs
             train_seqs = utils.load_seq(language, 'train', data_type)

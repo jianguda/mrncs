@@ -14,8 +14,7 @@ BIG_NUMBER = 1e7
 def convert_and_pad_token_sequence(token_vocab: Union[Vocabulary, BpeVocabulary],
                                    token_sequence: List[str],
                                    output_tensor_size: int,
-                                   pad_from_left: bool = False) \
-        -> Tuple[np.ndarray, np.ndarray]:
+                                   pad_from_left: bool = False) -> Tuple[np.ndarray, np.ndarray]:
     """
     Tensorise token sequence with padding; returning a mask for used elements as well.
 
@@ -40,11 +39,7 @@ def convert_and_pad_token_sequence(token_vocab: Union[Vocabulary, BpeVocabulary]
         token_sequence = token_sequence[:output_tensor_size]
 
     sequence_length = len(token_sequence)
-    if pad_from_left:
-        start_idx = output_tensor_size - sequence_length
-    else:
-        start_idx = 0
-
+    start_idx = output_tensor_size - sequence_length if pad_from_left else 0
     token_ids = np.zeros(output_tensor_size, dtype=np.int32)
     token_mask = np.zeros(output_tensor_size, dtype=np.float32)
     for i, token in enumerate(token_sequence, start=start_idx):

@@ -87,9 +87,14 @@ def ndcg(predictions: Dict[str, List[str]], relevance_scores: Dict[str, Dict[str
             elif not ignore_rank_of_non_annotated_urls:
                 current_rank += 1
 
-        query_idcg = 0
-        for i, ideal_relevance in enumerate(sorted(query_relevance_annotations.values(), reverse=True), start=1):
-            query_idcg += (2 ** ideal_relevance - 1) / np.log2(i + 1)
+        query_idcg = sum(
+            (2 ** ideal_relevance - 1) / np.log2(i + 1)
+            for i, ideal_relevance in enumerate(
+                sorted(query_relevance_annotations.values(), reverse=True),
+                start=1,
+            )
+        )
+
         if query_idcg == 0:
             # We have no positive annotations for the given query, so we should probably not penalize anyone about this.
             continue

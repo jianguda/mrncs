@@ -115,9 +115,8 @@ class BertConfig(object):
     return cls.from_dict(json.loads(text))
 
   def to_dict(self):
-    """Serializes this instance to a Python dictionary."""
-    output = copy.deepcopy(self.__dict__)
-    return output
+      """Serializes this instance to a Python dictionary."""
+      return copy.deepcopy(self.__dict__)
 
   def to_json_string(self):
     """Serializes this instance to a JSON string."""
@@ -318,7 +317,7 @@ def get_assigment_map_from_checkpoint(tvars, init_checkpoint):
 
 
 def dropout(input_tensor, dropout_prob):
-  """Perform dropout.
+    """Perform dropout.
 
   Args:
     input_tensor: float Tensor.
@@ -328,11 +327,10 @@ def dropout(input_tensor, dropout_prob):
   Returns:
     A version of `input_tensor` with dropout applied.
   """
-  if dropout_prob is None or dropout_prob == 0.0:
-    return input_tensor
+    if dropout_prob is None or dropout_prob == 0.0:
+      return input_tensor
 
-  output = tf.nn.dropout(input_tensor, 1.0 - dropout_prob)
-  return output
+    return tf.nn.dropout(input_tensor, 1.0 - dropout_prob)
 
 
 def layer_norm(input_tensor, name=None):
@@ -412,7 +410,7 @@ def embedding_postprocessor(input_tensor,
                             initializer_range=0.02,
                             max_position_embeddings=512,
                             dropout_prob=0.1):
-  """Performs various post-processing on a word embedding tensor.
+    """Performs various post-processing on a word embedding tensor.
 
   Args:
     input_tensor: float Tensor of shape [batch_size, seq_length,
@@ -439,70 +437,68 @@ def embedding_postprocessor(input_tensor,
   Raises:
     ValueError: One of the tensor shapes or input values is invalid.
   """
-  input_shape = get_shape_list(input_tensor, expected_rank=3)
-  batch_size = input_shape[0]
-  seq_length = input_shape[1]
-  width = input_shape[2]
+    input_shape = get_shape_list(input_tensor, expected_rank=3)
+    batch_size = input_shape[0]
+    seq_length = input_shape[1]
+    width = input_shape[2]
 
-  if seq_length > max_position_embeddings:
-    raise ValueError("The seq length (%d) cannot be greater than "
-                     "`max_position_embeddings` (%d)" %
-                     (seq_length, max_position_embeddings))
+    if seq_length > max_position_embeddings:
+      raise ValueError("The seq length (%d) cannot be greater than "
+                       "`max_position_embeddings` (%d)" %
+                       (seq_length, max_position_embeddings))
 
-  output = input_tensor
+    output = input_tensor
 
-  if use_token_type:
-    if token_type_ids is None:
-      raise ValueError("`token_type_ids` must be specified if"
-                       "`use_token_type` is True.")
-    token_type_table = tf.get_variable(
-        name=token_type_embedding_name,
-        shape=[token_type_vocab_size, width],
-        initializer=create_initializer(initializer_range))
-    # This vocab will be small so we always do one-hot here, since it is always
-    # faster for a small vocabulary.
-    flat_token_type_ids = tf.reshape(token_type_ids, [-1])
-    one_hot_ids = tf.one_hot(flat_token_type_ids, depth=token_type_vocab_size)
-    token_type_embeddings = tf.matmul(one_hot_ids, token_type_table)
-    token_type_embeddings = tf.reshape(token_type_embeddings,
-                                       [batch_size, seq_length, width])
-    output += token_type_embeddings
+    if use_token_type:
+      if token_type_ids is None:
+        raise ValueError("`token_type_ids` must be specified if"
+                         "`use_token_type` is True.")
+      token_type_table = tf.get_variable(
+          name=token_type_embedding_name,
+          shape=[token_type_vocab_size, width],
+          initializer=create_initializer(initializer_range))
+      # This vocab will be small so we always do one-hot here, since it is always
+      # faster for a small vocabulary.
+      flat_token_type_ids = tf.reshape(token_type_ids, [-1])
+      one_hot_ids = tf.one_hot(flat_token_type_ids, depth=token_type_vocab_size)
+      token_type_embeddings = tf.matmul(one_hot_ids, token_type_table)
+      token_type_embeddings = tf.reshape(token_type_embeddings,
+                                         [batch_size, seq_length, width])
+      output += token_type_embeddings
 
-  if use_position_embeddings:
-    full_position_embeddings = tf.get_variable(
-        name=position_embedding_name,
-        shape=[max_position_embeddings, width],
-        initializer=create_initializer(initializer_range))
-    # Since the position embedding table is a learned variable, we create it
-    # using a (long) sequence length `max_position_embeddings`. The actual
-    # sequence length might be shorter than this, for faster training of
-    # tasks that do not have long sequences.
-    #
-    # So `full_position_embeddings` is effectively an embedding table
-    # for position [0, 1, 2, ..., max_position_embeddings-1], and the current
-    # sequence has positions [0, 1, 2, ... seq_length-1], so we can just
-    # perform a slice.
-    if seq_length < max_position_embeddings:
-      position_embeddings = tf.slice(full_position_embeddings, [0, 0],
-                                     [seq_length, -1])
-    else:
-      position_embeddings = full_position_embeddings
+    if use_position_embeddings:
+        full_position_embeddings = tf.get_variable(
+            name=position_embedding_name,
+            shape=[max_position_embeddings, width],
+            initializer=create_initializer(initializer_range))
+        # Since the position embedding table is a learned variable, we create it
+        # using a (long) sequence length `max_position_embeddings`. The actual
+        # sequence length might be shorter than this, for faster training of
+        # tasks that do not have long sequences.
+        #
+        # So `full_position_embeddings` is effectively an embedding table
+        # for position [0, 1, 2, ..., max_position_embeddings-1], and the current
+        # sequence has positions [0, 1, 2, ... seq_length-1], so we can just
+        # perform a slice.
+        if seq_length < max_position_embeddings:
+          position_embeddings = tf.slice(full_position_embeddings, [0, 0],
+                                         [seq_length, -1])
+        else:
+          position_embeddings = full_position_embeddings
 
-    num_dims = len(output.shape.as_list())
+        num_dims = len(output.shape.as_list())
 
-    # Only the last two dimensions are relevant (`seq_length` and `width`), so
-    # we broadcast among the first dimensions, which is typically just
-    # the batch size.
-    position_broadcast_shape = []
-    for _ in range(num_dims - 2):
-      position_broadcast_shape.append(1)
-    position_broadcast_shape.extend([seq_length, width])
-    position_embeddings = tf.reshape(position_embeddings,
-                                     position_broadcast_shape)
-    output += position_embeddings
+            # Only the last two dimensions are relevant (`seq_length` and `width`), so
+            # we broadcast among the first dimensions, which is typically just
+            # the batch size.
+        position_broadcast_shape = [1 for _ in range(num_dims - 2)]
+        position_broadcast_shape.extend([seq_length, width])
+        position_embeddings = tf.reshape(position_embeddings,
+                                         position_broadcast_shape)
+        output += position_embeddings
 
-  output = layer_norm_and_dropout(output, dropout_prob)
-  return output
+    output = layer_norm_and_dropout(output, dropout_prob)
+    return output
 
 
 def create_attention_mask_from_input_mask(from_tensor, to_mask):
@@ -877,7 +873,7 @@ def transformer_model(input_tensor,
 
 
 def get_shape_list(tensor, expected_rank=None, name=None):
-  """Returns a list of the shape of tensor, preferring static dimensions.
+    """Returns a list of the shape of tensor, preferring static dimensions.
 
   Args:
     tensor: A tf.Tensor object to find the shape of.
@@ -891,40 +887,38 @@ def get_shape_list(tensor, expected_rank=None, name=None):
     be returned as python integers, and dynamic dimensions will be returned
     as tf.Tensor scalars.
   """
-  if name is None:
-    name = tensor.name
+    if name is None:
+      name = tensor.name
 
-  if expected_rank is not None:
-    assert_rank(tensor, expected_rank, name)
+    if expected_rank is not None:
+      assert_rank(tensor, expected_rank, name)
 
-  shape = tensor.shape.as_list()
+    shape = tensor.shape.as_list()
 
-  non_static_indexes = []
-  for (index, dim) in enumerate(shape):
-    if dim is None:
-      non_static_indexes.append(index)
+    non_static_indexes = [
+        index for (index, dim) in enumerate(shape) if dim is None
+    ]
 
-  if not non_static_indexes:
+    if not non_static_indexes:
+      return shape
+
+    dyn_shape = tf.shape(tensor)
+    for index in non_static_indexes:
+      shape[index] = dyn_shape[index]
     return shape
-
-  dyn_shape = tf.shape(tensor)
-  for index in non_static_indexes:
-    shape[index] = dyn_shape[index]
-  return shape
 
 
 def reshape_to_matrix(input_tensor):
-  """Reshapes a >= rank 2 tensor to a rank 2 tensor (i.e., a matrix)."""
-  ndims = input_tensor.shape.ndims
-  if ndims < 2:
-    raise ValueError("Input tensor must have at least rank 2. Shape = %s" %
-                     (input_tensor.shape))
-  if ndims == 2:
-    return input_tensor
+    """Reshapes a >= rank 2 tensor to a rank 2 tensor (i.e., a matrix)."""
+    ndims = input_tensor.shape.ndims
+    if ndims < 2:
+      raise ValueError("Input tensor must have at least rank 2. Shape = %s" %
+                       (input_tensor.shape))
+    if ndims == 2:
+      return input_tensor
 
-  width = input_tensor.shape[-1]
-  output_tensor = tf.reshape(input_tensor, [-1, width])
-  return output_tensor
+    width = input_tensor.shape[-1]
+    return tf.reshape(input_tensor, [-1, width])
 
 
 def reshape_from_matrix(output_tensor, orig_shape_list):

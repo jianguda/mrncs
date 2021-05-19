@@ -23,7 +23,7 @@ class TSNode:
         self.right_sibling = None
         # for the form of multi-way tree
         self.parent = None
-        self.children = list()
+        self.children = []
 
     def gen_root_path(self, tree_style='SPT'):
         ptr = self
@@ -55,7 +55,7 @@ class TSNode:
         root_path = list(reversed(root_path))
         value = self.value
         if hpt_ptr:
-            values = list()
+            values = []
             q = Queue()
             q.put(hpt_ptr)
             while not q.empty():
@@ -68,7 +68,7 @@ class TSNode:
         return root_path, value + self.mark
 
     def gen_sbt(self):
-        subtree_sbt = ''.join([child.gen_sbt() for child in self.children])
+        subtree_sbt = ''.join(child.gen_sbt() for child in self.children)
         # we prefer self.value to self.type
         # return f'{self.type}({subtree_sbt}){self.type}'
         return f'{self.value}({subtree_sbt}){self.value}'
@@ -108,11 +108,11 @@ class TS:
         code_lines = code.split('\n')
         self.root, self.terminals, self.num_eldest = self.traverse(tree, code_lines)
         self.terminal_nodes = list()
-        self.nonterminal_nodes = list()
+        self.nonterminal_nodes = []
         self.leafpath_terminal_nodes = list()
-        self.leafpath_nonterminal_nodes = list()
-        self.rootpath_terminal_nodes = list()
-        self.rootpath_nonterminal_nodes = list()
+        self.leafpath_nonterminal_nodes = []
+        self.rootpath_terminal_nodes = []
+        self.rootpath_nonterminal_nodes = []
         self.debug = False
         if self.debug:
             print(f'{"@" * 9}code\n{code}')
@@ -121,7 +121,7 @@ class TS:
     def traverse(self, tree, code_lines):
         q = Queue()
         root = TSNode()
-        terminals = list()
+        terminals = []
         eldest_counter = 0
         q.put((root, tree.root_node))
         while not q.empty():
@@ -131,7 +131,7 @@ class TS:
             lhs.type = str(rhs.type).lower().strip()
             lhs.value = self.query_token(rhs, code_lines)
             # mark is "@1~4~1~7" if start_point == (1, 4) and end_point == (1, 7)
-            lhs.mark += '~'.join([str(index) for index in rhs.start_point + rhs.end_point])
+            lhs.mark += '~'.join(str(index) for index in rhs.start_point + rhs.end_point)
             if rhs.children:
                 eldest_counter += 1
                 # non-terminals
@@ -305,10 +305,9 @@ class TS:
         char_end = node.end_point[1]
 
         if line_start != line_end:
-            token = code_lines[line_start][char_start:]
+            return code_lines[line_start][char_start:]
         else:
-            token = code_lines[line_start][char_start:char_end]
-        return token
+            return code_lines[line_start][char_start:char_end]
 
     @staticmethod
     def tokenize(term):
@@ -356,7 +355,7 @@ class TS:
 
 def code2paths(code, language='python', mode='rootpath'):
     ts = TS(code, language)
-    paths = list()
+    paths = []
     if mode == 'rootpath':
         root_paths = ts.gen_root_paths()
         for (root_path, identifier) in root_paths:

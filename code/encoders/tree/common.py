@@ -57,9 +57,7 @@ class Common:
         # L670@bert_self_attention.py
         # [batch_size, input_seq_len, input_seq_len]
         attention = tf.nn.softmax(attention, dim=-1)
-        # [batch_size, input_seq_len, output_seq_len]
-        outputs = tf.matmul(attention, V_layer)
-        return outputs
+        return tf.matmul(attention, V_layer)
 
     # JGD
     #  for training & testing: load_metadata_from_sample & load_data_from_sample @model.py
@@ -124,7 +122,7 @@ class Common:
             tokens = [token for token in tokens if token not in keywords4python]
             # tokens = [token for token in tokens if token not in builtins4python]
             tokens = [token for token in tokens if token not in characters4python]
-        return tokens if tokens else backup
+        return tokens or backup
 
     @staticmethod
     def preprocessing_query(tokens):
@@ -146,4 +144,4 @@ class Common:
         # tokens = [snowball_stemmer.stem(token) for token in tokens]
         # deduplication
         # tokens = list(set(tokens))
-        return tokens if tokens else backup
+        return tokens or backup

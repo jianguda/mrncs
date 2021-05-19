@@ -47,11 +47,10 @@ class SelfAttentionEncoder(MaskedSeqEncoder):
             output_pool_mode = self.get_hyper('self_attention_pool_mode').lower()
             if output_pool_mode == 'bert':
                 return model.get_pooled_output()
-            else:
-                seq_token_embeddings = model.get_sequence_output()
-                seq_token_masks = self.placeholders['tokens_mask']
-                seq_token_lengths = tf.reduce_sum(seq_token_masks, axis=1)  # B
-                return pool_sequence_embedding(output_pool_mode,
-                                               sequence_token_embeddings=seq_token_embeddings,
-                                               sequence_lengths=seq_token_lengths,
-                                               sequence_token_masks=seq_token_masks)
+            seq_token_embeddings = model.get_sequence_output()
+            seq_token_masks = self.placeholders['tokens_mask']
+            seq_token_lengths = tf.reduce_sum(seq_token_masks, axis=1)  # B
+            return pool_sequence_embedding(output_pool_mode,
+                                           sequence_token_embeddings=seq_token_embeddings,
+                                           sequence_lengths=seq_token_lengths,
+                                           sequence_token_masks=seq_token_masks)

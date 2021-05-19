@@ -12,14 +12,14 @@ from ..encoder import Encoder, QueryType
 
 class TreeAllEncoder(Encoder):
     def make_model(self, is_train: bool = False) -> tf.Tensor:
-        attention = True
-        embeddings = list()
+        embeddings = []
         with tf.variable_scope("tree_encoder"):
             embedding4leaf = self.treeLeafEncoder.make_model(is_train)
             embedding4path = self.treePathEncoder.make_model(is_train)
             embeddings.append(embedding4leaf)
             embeddings.append(embedding4path)
             embeddings = tf.concat(embeddings, axis=-1)
+            attention = True
             if attention:
                 embeddings = Common.self_attention_layer(embeddings)
             # "concat one-hot" is equal to "accumulate embedding"

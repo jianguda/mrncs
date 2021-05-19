@@ -28,8 +28,8 @@ class MrrEarlyStopping(EarlyStopping):
 
 
 def get_embeddings(model, encoded_seqs_dict: dict, idx_chunk):
-    predictors = list()
-    chunked_seqs_list = list()
+    predictors = []
+    chunked_seqs_list = []
     for data_type in shared.SUB_TYPES:
         predictor = train_model.get_embedding_predictor(model, data_type)
         predictors.append(predictor)
@@ -67,7 +67,7 @@ def compute_mrr(model, encoded_seqs_dict: dict):
 
 def emit_mrr_scores(model, language: str):
     valid_seqs_dict = dict()
-    test_seqs_dict = dict()
+    test_seqs_dict = {}
     for data_type in shared.SUB_TYPES:
         valid_seqs_dict[data_type] = utils.load_seq(language, 'valid', data_type)
         test_seqs_dict[data_type] = utils.load_seq(language, 'test', data_type)

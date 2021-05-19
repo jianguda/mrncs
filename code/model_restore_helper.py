@@ -43,11 +43,11 @@ def restore(path: RichPath, is_train: bool, hyper_overrides: Optional[Dict[str, 
         model.per_code_language_metadata[language] = language_metadata
     model.make_model(is_train=is_train)
 
-    variables_to_initialize = []
     with model.sess.graph.as_default():
         with tf.name_scope("restore"):
             restore_ops = []
             used_vars = set()
+            variables_to_initialize = []
             for variable in sorted(model.sess.graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), key=lambda v: v.name):
                 used_vars.add(variable.name)
                 if variable.name in saved_data['weights']:

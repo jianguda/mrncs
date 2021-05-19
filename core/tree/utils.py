@@ -14,47 +14,45 @@ from tree.bpevocabulary import BpeVocabulary
 
 
 def repack_embeddings(embeddings_list):
-    if len(embeddings_list) >= 3:
-        # concat-operation is similar to accumulate-operation
-        # concat-operation is to concat distributed embeddings
-        # accumulate-operation is to concat one-hot embeddings
-        # but concat-operation would double the embedding size
-        # therefore we prefer to utilize accumulate-operation
-        hybrid_embeddings = tf.math.add_n(embeddings_list[:-1])
-        # hybrid_embeddings = tf.concat(embeddings_list[:2], axis=-1)
-        # Hadamard product (element-wise) is not the better choice!
-        # hybrid_embeddings = tf.math.multiply(embeddings_list[0], embeddings_list[1])
-        query_embeddings = embeddings_list[-1]
-        return hybrid_embeddings, query_embeddings
-    else:
+    if len(embeddings_list) < 3:
         return embeddings_list
+
+    # concat-operation is similar to accumulate-operation
+    # concat-operation is to concat distributed embeddings
+    # accumulate-operation is to concat one-hot embeddings
+    # but concat-operation would double the embedding size
+    # therefore we prefer to utilize accumulate-operation
+    hybrid_embeddings = tf.math.add_n(embeddings_list[:-1])
+    # hybrid_embeddings = tf.concat(embeddings_list[:2], axis=-1)
+    # Hadamard product (element-wise) is not the better choice!
+    # hybrid_embeddings = tf.math.multiply(embeddings_list[0], embeddings_list[1])
+    query_embeddings = embeddings_list[-1]
+    return hybrid_embeddings, query_embeddings
 
 
 def get_seq_length(data_type: str):
     if data_type == 'query':
-        input_length = shared.QUERY_SEQ_LEN
+        return shared.QUERY_SEQ_LEN
     else:  # 'code', 'rootpath', 'leafpath', 'sbt', 'lcrs'
-        input_length = shared.CODE_SEQ_LEN
-    return input_length
+        return shared.CODE_SEQ_LEN
 
 
 def get_compatible_mode_tag():
     if shared.ANNOY:
-        mode_tag = 'annoy'
+        return 'annoy'
     elif shared.ATTENTION:
-        mode_tag = 'attention'
+        return 'attention'
     elif shared.DESENSITIZE:
-        mode_tag = 'desensitize'
+        return 'desensitize'
     else:
-        mode_tag = shared.MODE_TAG
-    return mode_tag
+        return shared.MODE_TAG
 
 
 def filter_valid_seqs(encoded_seqs_dict: dict):
     valid_seqs = (encoded_seqs.astype(bool).sum(axis=1) > 0 for encoded_seqs in encoded_seqs_dict.values())
     valid_seqs_indices = functools.reduce(operator.and_, valid_seqs)
 
-    for data_type in encoded_seqs_dict.keys():
+    for data_type in encoded_seqs_dict:
         encoded_seqs = encoded_seqs_dict.get(data_type)
         valid_seqs = encoded_seqs[valid_seqs_indices, :]
         encoded_seqs_dict[data_type] = valid_seqs

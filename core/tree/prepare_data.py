@@ -42,18 +42,27 @@ def preprocess_tokens(tokens: Iterable[str], data_type: str) -> Iterable[List[st
 
 def doc2tokens(doc, language, data_type, evaluation=True):
     if data_type == 'code':
-        tokens = doc['function_tokens' if evaluation else 'code_tokens']
+        return doc['function_tokens' if evaluation else 'code_tokens']
     elif data_type == 'rootpath':
-        tokens = code2paths(doc['function' if evaluation else 'code'], language, mode='rootpath')
+        return code2paths(
+            doc['function' if evaluation else 'code'],
+            language,
+            mode='rootpath',
+        )
+
     elif data_type == 'leafpath':
-        tokens = code2paths(doc['function' if evaluation else 'code'], language, mode='leafpath')
+        return code2paths(
+            doc['function' if evaluation else 'code'],
+            language,
+            mode='leafpath',
+        )
+
     elif data_type == 'sbt':
-        tokens = code2sbt(doc['function' if evaluation else 'code'], language)
+        return code2sbt(doc['function' if evaluation else 'code'], language)
     elif data_type == 'lcrs':
-        tokens = code2lcrs(doc['function' if evaluation else 'code'], language)
+        return code2lcrs(doc['function' if evaluation else 'code'], language)
     else:  # query
-        tokens = doc.split() if evaluation else doc['docstring_tokens']
-    return tokens
+        return doc.split() if evaluation else doc['docstring_tokens']
 
 
 def prepare_corpus_docs(args):
@@ -62,10 +71,10 @@ def prepare_corpus_docs(args):
 
     if utils.check_doc(language, data_set):
         return
-    prepared_docs = list()
+    prepared_docs = []
     for doc in utils.get_csn_corpus(language, data_set):
         language = doc['language']
-        prepared_doc = dict()
+        prepared_doc = {}
         for data_type in shared.DATA_TYPES:
             tokens = doc2tokens(doc, language, data_type, evaluation=False)
             prepared_doc[data_type] = tokens
