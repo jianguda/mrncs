@@ -1,6 +1,16 @@
 # MRNCS
 
-This repo is the artifact for the paper entitled `Multimodel Representation for Neural Code Search`, accepted by `ICSME 2021`
+This repo is the artifact for the paper entitled [Multimodel Representation for Neural Code Search](https://arxiv.org/pdf/2107.00992), accepted by `ICSME 2021` (doi:10.1109/ICSME52107.2021.00049).
+
+```bibtex
+@inproceedings{gu2021codesearch,
+ title = {Multimodal Representation for Neural Code Search},
+ author = {Jian Gu and Zimin Chen and Martin Monperrus}
+ booktitle = {Proceedings of International Conference on Software Maintenance and Evolution},
+ year = {2021},
+ doi = {10.1109/ICSME52107.2021.00049},
+}
+```
 
 ## Repo Structure
 
